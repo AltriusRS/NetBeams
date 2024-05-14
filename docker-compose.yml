@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  valkey: 
+    image: 'bitnami/valkey:latest'
+    volumes: 
+      - valkey-data:/bitnami/valkey/data
+    ports:
+      - "6379:6379"
+    env_file:
+      - .valkey.dev.env
+
+
+
+volumes:
+  valkey-data:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: ./data/
