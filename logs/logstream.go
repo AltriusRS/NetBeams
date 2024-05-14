@@ -27,7 +27,7 @@ func NewLogStream(opts valkey.ClientOption) LogStream {
 func (l *LogStream) Log(entry Log) {
 	response := l.net.Do(
 		context.Background(),
-		l.net.B().Xadd().Key("logstream").Id("*").FieldValue().FieldValue("level", entry.Level).FieldValue("module", entry.Module).FieldValue("message", entry.Message).FieldValue("time", entry.Time.Format(time.RFC3339)).FieldValue("machineid", entry.MachineID).FieldValue("hostname", entry.Hostname).Build(),
+		l.net.B().Xadd().Key("logstream").Id("*").FieldValue().FieldValue("level", entry.Level.String()).FieldValue("module", entry.Module).FieldValue("message", entry.Message).FieldValue("time", entry.Time.Format(time.RFC3339)).FieldValue("machineid", entry.MachineID).FieldValue("hostname", entry.Hostname).Build(),
 	)
 
 	if response.Error() != nil {
