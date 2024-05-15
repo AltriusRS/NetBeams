@@ -184,7 +184,7 @@ func (l *Logger) Log(level LogLevel, message string) {
 }
 
 // logs a formatted message
-func (l *Logger) Logf(level LogLevel, format string, args ...interface{}) {
+func (l *Logger) Logf(level LogLevel, format string, args ...any) {
 	l.Log(level, fmt.Sprintf(format, args...))
 }
 
@@ -193,9 +193,19 @@ func (l *Logger) Debug(message string) {
 	l.Logf(LogLevelDebug, message)
 }
 
+// Log a formatted debug message
+func (l *Logger) Debugf(format string, args ...any) {
+	l.Logf(LogLevelDebug, format, args...)
+}
+
 // Log an info message
 func (l *Logger) Info(message string) {
 	l.Logf(LogLevelInfo, message)
+}
+
+// Log a formatted info message
+func (l *Logger) Infof(format string, args ...any) {
+	l.Logf(LogLevelInfo, format, args...)
 }
 
 // Log a warning message
@@ -203,14 +213,24 @@ func (l *Logger) Warn(message string) {
 	l.Logf(LogLevelWarn, message)
 }
 
+// Log a formatted warning message
+func (l *Logger) Warnf(format string, args ...any) {
+	l.Logf(LogLevelWarn, format, args...)
+}
+
 // Log an error message
 func (l *Logger) Error(message string) {
 	l.Logf(LogLevelError, message)
 }
 
+// Log a formatted error message
+func (l *Logger) Errorf(format string, args ...any) {
+	l.Logf(LogLevelError, format, args...)
+}
+
 // Log a fatal message
-func (l *Logger) Fatal(message string) {
-	l.Logf(LogLevelFatal, message)
+func (l *Logger) Fatal(message error) {
+	l.Logf(LogLevelFatal, message.Error())
 }
 
 func (l *Logger) Terminate() {
