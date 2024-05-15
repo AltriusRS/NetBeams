@@ -2,6 +2,10 @@ go 1.22.3
 
 use (
 	.
+	./config
 	./environment
 	./logs
+	./server
+	./utils
+	./utils/string
 )
