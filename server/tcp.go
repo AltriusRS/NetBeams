@@ -14,11 +14,11 @@ type TCPServer struct {
 	StatusCallback func(Status)
 }
 
-func NewTCPServer(port int, cb func(Status)) TCPServer {
+func NewTCPServer(port int, l *logs.Logger, cb func(Status)) TCPServer {
 	return TCPServer{
 		Addr:           "0.0.0.0",
 		Port:           port,
-		Logger:         logs.NetLogger("TCP Server"),
+		Logger:         l.Fork("TCP Server"),
 		StatusCallback: cb,
 	}
 }

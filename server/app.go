@@ -45,12 +45,10 @@ type Application struct {
 	tasks map[string]*Status
 }
 
-func NewApplication(config config.BaseConfig) Application {
-	logger := logs.NetLogger("NetBeam")
-
+func NewApplication(config config.BaseConfig, l *logs.Logger) Application {
 	return Application{
 		Config: config,
-		Logger: logger,
+		Logger: l.Fork("NetBeam"),
 		tasks:  make(map[string]*Status),
 	}
 }
@@ -59,18 +57,26 @@ func (app *Application) StartMainNode() {
 	app.Logger.Info("Starting NetBeam...")
 	app.Logger.Info("Starting Server")
 	app.Logger.Infof("Node ID: %s", app.Logger.MachineID)
-	app.TCPServer = NewTCPServer(app.Config.General.Port, func(s Status) {
+
+	// Spawn the TCP server manager instance
+	app.TCPServer = NewTCPServer(app.Config.General.Port, &app.Logger, func(s Status) {
 		app.SetStatus("tcp", &s)
 	})
+
+	// Start the TCP server
 	sucess := app.TCPServer.Start()
+
 	if !sucess {
 		app.Logger.Fatal(errors.New("failed to start tcp server"))
 	}
+
 	app.Logger.Info("Server started")
 }
 
 func (app *Application) Shutdown() {
-
+	app.Logger.Info("Shutting down...")
+	app.TCPServer.Stop()
+	app.Logger.Info("Shutdown complete")
 }
 
 func (app *Application) GetStatus(name string) *Status {

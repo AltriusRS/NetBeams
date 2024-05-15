@@ -8,7 +8,7 @@ import (
 
 func main() {
 	// Spawn a new logger instance
-	logger := logs.NetLogger("")
+	logger := logs.NetLogger("Main")
 	defer logger.Terminate()
 	logger.Info("Loading congiguration file")
 	logger.Info("Loading data")
@@ -25,7 +25,7 @@ func main() {
 	}
 	logger.Info("Mode: " + mode)
 
-	app := server.NewApplication(serverConfig)
+	app := server.NewApplication(serverConfig, &logger)
 
 	switch mode {
 	case "main":

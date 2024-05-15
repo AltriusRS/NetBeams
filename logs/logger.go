@@ -183,6 +183,31 @@ func (l *Logger) Log(level LogLevel, message string) {
 	}
 }
 
+// Fork a new logger from the existing instance (minimises the amount of data logged when creating a new logger)
+func (l *Logger) Fork(module string) Logger {
+	init_address, present := os.LookupEnv("VALKEY_URI")
+	if !present || init_address == "" {
+		l.Error("Failed to get VALKEY_URI environment variable - Falling back to offline logging")
+		return OfflineLogger(module)
+	}
+	valkey_password, present := os.LookupEnv("VALKEY_PASSWORD")
+	if !present || valkey_password == "" {
+		l.Error("Failed to get VALKEY_PASSWORD environment variable - Falling back to offline logging")
+		return OfflineLogger(module)
+	}
+
+	net := NewLogStream(valkey.ClientOption{InitAddress: []string{init_address}, Password: valkey_password, SelectDB: 0})
+
+	return Logger{
+		Level:     l.Level,
+		Module:    module,
+		MachineID: l.MachineID,
+		Hostname:  l.Hostname,
+		Net:       &net,
+	}
+
+}
+
 // logs a formatted message
 func (l *Logger) Logf(level LogLevel, format string, args ...any) {
 	l.Log(level, fmt.Sprintf(format, args...))
