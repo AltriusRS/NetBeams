@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"netbeams/logs"
-	"strings"
 	"time"
 )
 
@@ -104,51 +103,79 @@ func (c *TCPConnection) Listen() {
 	}
 }
 
+func (c *TCPConnection) Write(data []byte) {
+	c.Logger.Debugf("Writing to connection %s - %d bytes", c.Address, len(data))
+
+	header := int32(len(data))
+	headerBytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(headerBytes, uint32(header))
+
+	packet := append(headerBytes, data...)
+
+	_, err := c.Conn.Write(packet)
+	if err != nil {
+		c.SetStatus(Errored)
+		c.Logger.Error("Error writing to connection - Additional output below")
+		c.Logger.Error(err.Error())
+	}
+}
+
 // Read from the connection
 func (c *TCPConnection) Read() ([]byte, error) {
 	c.Conn.SetDeadline(time.Now().Add(time.Second))
-	HeaderBytes := make([]byte, 4)
-	_, err := c.Conn.Read(HeaderBytes)
+	// HeaderBytes := make([]byte, 4)
+	// _, err := c.Conn.Read(HeaderBytes)
 
-	if err != nil {
-		if strings.HasSuffix(err.Error(), "i/o timeout") {
-			c.Logger.Debug("Message polling timed out")
-			return nil, nil
-		}
-		c.Logger.Error("Error reading message header - Additional output below")
-		c.Logger.Fatal(err)
-		return nil, err
-	}
+	// if err != nil {
+	// 	if strings.HasSuffix(err.Error(), "i/o timeout") {
+	// 		c.Logger.Debug("Message polling timed out")
+	// 		return nil, nil
+	// 	}
+	// 	c.Logger.Error("Error reading message header - Additional output below")
+	// 	c.Logger.Fatal(err)
+	// 	return nil, err
+	// }
 
-	c.Logger.Debugf("Received message header %v", HeaderBytes)
-	Header := int32(binary.LittleEndian.Uint32(HeaderBytes))
+	// c.Logger.Debugf("Received message header %x", HeaderBytes)
 
-	c.Logger.Debugf("Received message header %d", Header)
+	// // Read the header
+	// Header := binary.LittleEndian.Uint32(HeaderBytes)
 
-	if Header > MaxHeaderSize {
-		return nil, fmt.Errorf("header size limit exceeded")
-	}
+	// if Header > MaxHeaderSize {
+	// 	return nil, fmt.Errorf("header size limit exceeded")
+	// }
 
-	BodyPayload := make([]byte, Header)
+	// c.Logger.Debugf("Received message header %d", Header)
 
-	bytesRead, err := c.Conn.Read(BodyPayload)
-	if err != nil {
-		c.Logger.Error("Error reading message body - Additional output below")
-		c.Logger.Fatal(err)
+	// if Header >= MaxHeaderSize {
+	// 	return nil, fmt.Errorf("header size limit exceeded")
+	// }
 
-		return nil, err
-	}
+	// BodyPayload := make([]byte, Header)
 
-	Body := string(BodyPayload)
+	// bytesRead, err := c.Conn.Read(BodyPayload)
+	// if err != nil {
+	// 	c.Logger.Error("Error reading message body - Additional output below")
+	// 	c.Logger.Fatal(err)
 
-	c.Logger.Debug("Received message body")
-	c.Logger.Debug(Body + "|END")
+	// 	return nil, err
+	// }
 
-	if bytesRead < int(Header) {
-		return nil, fmt.Errorf("message body too short")
-	}
+	// Body := string(BodyPayload)
 
-	return BodyPayload, nil
+	// c.Logger.Debug("Received message body")
+	// c.Logger.Debug(Body + "|END")
+
+	// if bytesRead < int(Header) {
+	// 	c.Logger.Warnf("Message body too short - %d bytes read out of %d", bytesRead, Header)
+	// 	return nil, fmt.Errorf("message body too short")
+	// }
+
+	packet, err := ReadPacket(c.Conn)
+
+	c.Logger.Debugf("Received packet: %s", packet.data)
+
+	return nil, err
 }
 
 func (c *TCPConnection) Identify() error {
@@ -174,16 +201,6 @@ func (c *TCPConnection) Authenticate() error {
 	return fmt.Errorf("not implemented")
 
 	return nil
-}
-
-func (c *TCPConnection) Write(data []byte) {
-	c.Logger.Debugf("Writing to connection %s - %d bytes", c.Address, len(data))
-	_, err := c.Conn.Write(data)
-	if err != nil {
-		c.SetStatus(Errored)
-		c.Logger.Error("Error writing to connection - Additional output below")
-		c.Logger.Error(err.Error())
-	}
 }
 
 func (c *TCPConnection) Close() {

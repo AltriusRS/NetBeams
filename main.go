@@ -10,6 +10,7 @@ import (
 )
 
 func main() {
+
 	// Spawn a new logger instance
 	logger := logs.NetLogger("Main")
 	defer logger.Terminate()

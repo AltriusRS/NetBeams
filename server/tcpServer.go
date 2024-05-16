@@ -20,7 +20,7 @@ type TCPServer struct {
 
 func NewTCPServer(port int, l *logs.Logger, cb func(Status)) TCPServer {
 	return TCPServer{
-		Addr:           "0.0.0.0",
+		Addr:           "0.0.0.0", // Listen on all interfaces
 		Port:           port,
 		Logger:         l.Fork("TCP Server"),
 		StatusCallback: cb,
@@ -97,7 +97,7 @@ func (s *TCPServer) Listen() {
 
 		if err != nil {
 			if strings.HasSuffix(err.Error(), "i/o timeout") {
-				s.Logger.Debug("Connection polling timed out")
+				// s.Logger.Debug("Connection polling timed out")
 				continue
 			}
 			s.Logger.Error("Error accepting connection - Additional output below")
