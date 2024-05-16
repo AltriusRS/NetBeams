@@ -28,7 +28,7 @@ type Log struct {
 }
 
 func (l *Log) String() string {
-	timeString := l.Time.Local().Format(time.TimeOnly)
+	timeString := l.Time.Local().Format("15:04:05.000")
 	upperLevel := strings.ToUpper(l.Level.String())
 	logColor := ""
 

@@ -4,6 +4,9 @@ import (
 	"netbeams/config"
 	"netbeams/logs"
 	"netbeams/server"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
@@ -25,7 +28,11 @@ func main() {
 	}
 	logger.Info("Mode: " + mode)
 
+	// Spawn a new application instance
 	app := server.NewApplication(serverConfig, &logger)
+
+	// Pass application to signal handler to allow graceful shutdown
+	signalHandler(&app)
 
 	switch mode {
 	case "main":
@@ -40,4 +47,26 @@ func main() {
 
 	app.Wait() // Wait for the application to terminate
 	logger.Info("Exiting")
+}
+
+// goroutine to handle signals and gracefully shutdown the application
+func signalHandler(app *server.Application) {
+	channel := make(chan os.Signal, 1)
+
+	exit := make(chan bool, 1)
+
+	signal.Notify(channel, syscall.SIGTERM, syscall.SIGINT)
+
+	go func() {
+		sig := <-channel
+		app.Logger.Info("Received signal: " + sig.String())
+		exit <- true
+	}()
+
+	go func() {
+		<-exit
+		app.Logger.Info("Shutdown signal handler started - Closing in 5 seconds")
+		app.Logger.Info("Closing application")
+		app.Shutdown()
+	}()
 }

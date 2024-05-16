@@ -14,6 +14,7 @@ const (
 	Starting
 	Healthy
 	Stopping
+	Stopped
 	Shutdown
 	Errored
 )
@@ -28,6 +29,8 @@ func (s Status) String() string {
 		return "Healthy"
 	case Stopping:
 		return "Stopping"
+	case Stopped:
+		return "Stopped"
 	case Shutdown:
 		return "Shutdown"
 	case Errored:
@@ -48,7 +51,7 @@ type Application struct {
 func NewApplication(config config.BaseConfig, l *logs.Logger) Application {
 	return Application{
 		Config: config,
-		Logger: l.Fork("NetBeam"),
+		Logger: l.Fork("Resource Manager"),
 		tasks:  make(map[string]*Status),
 	}
 }
@@ -89,19 +92,19 @@ func (app *Application) SetStatus(name string, status *Status) {
 }
 
 func (app *Application) Wait() {
-	active := make(map[string]bool)
 	for {
+		active := []string{}
 		for name, status := range app.tasks {
 			if status == nil {
 				continue
 			}
-			if *status == Shutdown || *status == Errored {
-				delete(app.tasks, name)
-			} else {
-				active[name] = true
+			if *status != Shutdown && *status != Errored {
+				active = append(active, name)
 			}
+			// app.Logger.Debugf("Service '%s' is %s", name, *status)
 		}
-		time.Sleep(time.Millisecond * 100) // Sleep for 100ms before checking again
+		// app.Logger.Debugf("Active services: %d", len(active))
+		time.Sleep(time.Second) // Sleep for 100ms before checking again
 		if len(active) == 0 {
 			break
 		}
