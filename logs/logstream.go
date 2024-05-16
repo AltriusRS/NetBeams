@@ -1,38 +1,50 @@
 package logs
 
 import (
-	"context"
+	"netbeams/keyval"
 	"time"
-
-	"github.com/valkey-io/valkey-go"
 )
 
 // LogStream represents a log stream
 type LogStream struct {
-	net valkey.Client
+	net *keyval.KeyvalClient
 }
 
 // NewLogStream creates a new log stream
-func NewLogStream(opts valkey.ClientOption) LogStream {
-	client, err := valkey.NewClient(opts)
+func NewLogStream() (*LogStream, error) {
+	client, err := keyval.NewKeyvalClient()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return LogStream{
+	return &LogStream{
+		net: client,
+	}, nil
+}
+
+func ForkLogStream(client *keyval.KeyvalClient) *LogStream {
+	return &LogStream{
 		net: client,
 	}
 }
 
-func (l *LogStream) Log(entry Log) {
-	response := l.net.Do(
-		context.Background(),
-		l.net.B().Xadd().Key("logstream").Id("*").FieldValue().FieldValue("level", entry.Level.String()).FieldValue("module", entry.Module).FieldValue("message", entry.Message).FieldValue("time", entry.Time.Format(time.RFC3339)).FieldValue("machineid", entry.MachineID).FieldValue("hostname", entry.Hostname).Build(),
+func (l *LogStream) Log(entry Log) error {
+	if l.net == nil {
+		return nil
+	}
+
+	response := l.net.Xadd("logstream", "*",
+		[][]string{
+			{"level", entry.Level.String()},
+			{"module", entry.Module},
+			{"message", entry.Message},
+			{"time", entry.Time.Format(time.RFC3339)},
+			{"machineid", entry.MachineID},
+			{"hostname", entry.Hostname},
+		},
 	)
 
-	if response.Error() != nil {
-		panic(response.Error())
-	}
+	return response.Error()
 }
 
 func (l *LogStream) Terminate() {

@@ -24,6 +24,7 @@ func NewTCPServer(port int, l *logs.Logger, cb func(Status)) TCPServer {
 		Port:           port,
 		Logger:         l.Fork("TCP Server"),
 		StatusCallback: cb,
+		Connections:    make(map[string]TCPConnection),
 	}
 }
 
@@ -106,17 +107,12 @@ func (s *TCPServer) Listen() {
 
 		addr := conn.RemoteAddr().String()
 
+		s.Logger.Debugf("Incoming connection from %s", conn.RemoteAddr())
 		connection := NewTCPConnection(conn, addr, s, &s.Logger)
 
 		s.Connections[addr] = connection
 
-		connection.Listen()
+		go connection.Listen()
 	}
-
-}
-
-func (s *TCPServer) Handle(conn *net.Conn) {
-	s.Logger.Debugf("Incoming connection from %s", conn.RemoteAddr())
-	defer conn.Close()
 
 }

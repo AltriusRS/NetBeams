@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/denisbrodbeck/machineid"
-	"github.com/valkey-io/valkey-go"
 )
 
 // Logger represents a logger
@@ -133,29 +132,18 @@ func NetLogger(module string) Logger {
 
 	l.Debug("Hostname: " + hostname)
 
-	init_address, present := os.LookupEnv("VALKEY_URI")
-	if !present || init_address == "" {
-		l.Error("Failed to get VALKEY_URI environment variable - Falling back to offline logging")
+	net, err := NewLogStream()
+
+	if err != nil {
+		l.Error("Failed to create valkey client - Unable to initialise")
 		return l
 	}
-
-	l.Debug("Valkey URI is present")
-
-	valkey_password, present := os.LookupEnv("VALKEY_PASSWORD")
-	if !present || valkey_password == "" {
-		l.Error("Failed to get VALKEY_PASSWORD environment variable - Falling back to offline logging")
-		return l
-	}
-	l.Debug("Valkey Password is present")
-
-	l.Debug("Creating valkey client")
-	net := NewLogStream(valkey.ClientOption{InitAddress: []string{init_address}, Password: valkey_password, SelectDB: 0})
 
 	return Logger{
 		Module:    module,
 		MachineID: machineId,
 		Hostname:  hostname,
-		Net:       &net,
+		Net:       net,
 		Level:     level,
 	}
 }
@@ -179,31 +167,18 @@ func (l *Logger) Log(level LogLevel, message string) {
 	fmt.Println(log.String())
 
 	if l.Net != nil {
-		l.Net.Log(log)
+		_ = l.Net.Log(log) // Ignore write errors to valkey as they are not critical and could cause spam
 	}
 }
 
 // Fork a new logger from the existing instance (minimises the amount of data logged when creating a new logger)
 func (l *Logger) Fork(module string) Logger {
-	init_address, present := os.LookupEnv("VALKEY_URI")
-	if !present || init_address == "" {
-		l.Error("Failed to get VALKEY_URI environment variable - Falling back to offline logging")
-		return OfflineLogger(module)
-	}
-	valkey_password, present := os.LookupEnv("VALKEY_PASSWORD")
-	if !present || valkey_password == "" {
-		l.Error("Failed to get VALKEY_PASSWORD environment variable - Falling back to offline logging")
-		return OfflineLogger(module)
-	}
-
-	net := NewLogStream(valkey.ClientOption{InitAddress: []string{init_address}, Password: valkey_password, SelectDB: 0})
-
 	return Logger{
 		Level:     l.Level,
 		Module:    module,
 		MachineID: l.MachineID,
 		Hostname:  l.Hostname,
-		Net:       &net,
+		Net:       l.Net,
 	}
 
 }

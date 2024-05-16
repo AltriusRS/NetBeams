@@ -4,6 +4,7 @@ use (
 	.
 	./config
 	./environment
+	./keyval
 	./logs
 	./server
 	./utils
