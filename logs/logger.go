@@ -21,8 +21,11 @@ type Logger struct {
 	// The valkey client
 	Net *LogStream
 
-	// The valkey client
+	// A unique identifier for the machine
 	MachineID string
+
+	// A short identifier based on the machine ID
+	ShortId string
 
 	// The hostname of the machine
 	Hostname string
@@ -48,11 +51,14 @@ func OfflineLogger(module string) Logger {
 		panic(err)
 	}
 
+	shortId := machineId[5:15]
+
 	if internal_log_level != nil {
 		return Logger{
 			Level:     *internal_log_level,
 			Module:    module,
 			MachineID: machineId,
+			ShortId:   shortId,
 			Hostname:  hostname,
 		}
 	}
@@ -61,6 +67,7 @@ func OfflineLogger(module string) Logger {
 		Level:     LogLevelDebug,
 		Module:    module,
 		MachineID: machineId,
+		ShortId:   shortId,
 		Hostname:  hostname,
 	}
 }
@@ -130,6 +137,8 @@ func NetLogger(module string) Logger {
 		panic(err)
 	}
 
+	shortId := machineId[5:15]
+
 	l.Debug("Hostname: " + hostname)
 
 	net, err := NewLogStream()
@@ -142,6 +151,7 @@ func NetLogger(module string) Logger {
 	return Logger{
 		Module:    module,
 		MachineID: machineId,
+		ShortId:   shortId,
 		Hostname:  hostname,
 		Net:       net,
 		Level:     level,
@@ -156,6 +166,7 @@ func (l *Logger) Log(level LogLevel, message string) {
 		Message:   message,
 		Time:      time.Now(),
 		MachineID: l.MachineID,
+		ShortId:   l.ShortId,
 		Hostname:  l.Hostname,
 	}
 
@@ -178,6 +189,7 @@ func (l *Logger) Fork(module string) Logger {
 		Module:    module,
 		MachineID: l.MachineID,
 		Hostname:  l.Hostname,
+		ShortId:   l.ShortId,
 		Net:       l.Net,
 	}
 

@@ -23,6 +23,9 @@ type Log struct {
 	// The machine ID - This is used to identify the machine that generated the log entry
 	MachineID string
 
+	// The short ID based on the machine ID
+	ShortId string
+
 	// The hostname of the machine that generated the log entry
 	Hostname string
 }

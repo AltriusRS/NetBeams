@@ -40,6 +40,7 @@ func (l *LogStream) Log(entry Log) error {
 			{"message", entry.Message},
 			{"time", entry.Time.Format(time.RFC3339)},
 			{"machineid", entry.MachineID},
+			{"shortid", entry.ShortId},
 			{"hostname", entry.Hostname},
 		},
 	)

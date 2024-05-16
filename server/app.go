@@ -26,7 +26,7 @@ func NewApplication(config config.BaseConfig, l *logs.Logger) Application {
 func (app *Application) StartMainNode() {
 	app.Logger.Info("Starting NetBeam...")
 	app.Logger.Info("Starting Server")
-	app.Logger.Infof("Node ID: %s", app.Logger.MachineID)
+	app.Logger.Infof("Node ID: %s", app.Logger.ShortId)
 
 	// Spawn the TCP server manager instance
 	app.TCPServer = NewTCPServer(app.Config.General.Port, &app.Logger, func(s Status) {
