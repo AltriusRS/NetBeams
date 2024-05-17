@@ -1,25 +1,26 @@
-package server
+package tcp
 
 import (
 	"fmt"
 	"net"
+	"netbeams/globals"
 	"netbeams/logs"
 	"strings"
 	"time"
 )
 
-type TCPServer struct {
+type Server struct {
 	Addr           string
 	Port           int
 	Logger         logs.Logger
 	Listener       *net.TCPListener
-	StatusCallback func(Status)
-	Status         Status
+	StatusCallback func(globals.Status)
+	Status         globals.Status
 	Connections    map[string]TCPConnection
 }
 
-func NewTCPServer(port int, l *logs.Logger, cb func(Status)) TCPServer {
-	return TCPServer{
+func NewServer(port int, l *logs.Logger, cb func(globals.Status)) Server {
+	return Server{
 		Addr:           "0.0.0.0", // Listen on all interfaces
 		Port:           port,
 		Logger:         l.Fork("TCP Server"),
@@ -28,7 +29,7 @@ func NewTCPServer(port int, l *logs.Logger, cb func(Status)) TCPServer {
 	}
 }
 
-func (s *TCPServer) SetStatus(status Status) {
+func (s *Server) SetStatus(status globals.Status) {
 	if s.Status != status {
 		s.Logger.Infof("Status changed from %s to %s", s.Status, status)
 		s.Status = status
@@ -36,14 +37,14 @@ func (s *TCPServer) SetStatus(status Status) {
 	}
 }
 
-func (s *TCPServer) Start() bool {
-	s.SetStatus(Starting)
+func (s *Server) Start() bool {
+	s.SetStatus(globals.Starting)
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", s.Addr, s.Port))
 
 	if err != nil {
 		s.Logger.Error("Error resolving TCP address - Additional output below")
 		s.Logger.Fatal(err)
-		s.SetStatus(Errored)
+		s.SetStatus(globals.Errored)
 		return false
 	}
 
@@ -54,7 +55,7 @@ func (s *TCPServer) Start() bool {
 	if err != nil {
 		s.Logger.Error("Error starting TCP listener - Additional output below")
 		s.Logger.Fatal(err)
-		s.SetStatus(Errored)
+		s.SetStatus(globals.Errored)
 		return false
 	}
 
@@ -65,31 +66,31 @@ func (s *TCPServer) Start() bool {
 	return true
 }
 
-func (s *TCPServer) Stop() {
-	s.SetStatus(Stopping)
+func (s *Server) Stop() {
+	s.SetStatus(globals.Stopping)
 
 	delay := time.Second
 
-	for s.Status == Stopping {
+	for s.Status == globals.Stopping {
 		time.Sleep(delay)
 		s.Logger.Info("Waiting for listener to stop")
 	}
 
-	s.SetStatus(Shutdown)
+	s.SetStatus(globals.Shutdown)
 }
 
-func (s *TCPServer) Listen() {
-	s.SetStatus(Healthy)
+func (s *Server) Listen() {
+	s.SetStatus(globals.Healthy)
 
 	for {
 		s.Listener.SetDeadline(time.Now().Add(time.Second))
-		if s.Status != Healthy {
+		if s.Status != globals.Healthy {
 			err := s.Listener.Close()
 			if err != nil {
 				s.Logger.Error("Error closing listener - Additional output below")
 				s.Logger.Fatal(err)
 			}
-			s.SetStatus(Stopped)
+			s.SetStatus(globals.Stopped)
 			break
 		}
 

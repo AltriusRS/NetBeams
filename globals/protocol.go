@@ -1,4 +1,4 @@
-package server
+package globals
 
 const SingleByte = 1
 const Kilobyte = 1024 * SingleByte

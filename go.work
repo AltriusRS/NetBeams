@@ -4,9 +4,12 @@ use (
 	.
 	./config
 	./environment
+	./globals
 	./keyval
 	./logs
 	./server
+	./tcp
+	./udp
 	./utils
 	./utils/string
 )

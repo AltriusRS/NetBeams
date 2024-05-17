@@ -1,9 +1,10 @@
-package server
+package tcp
 
 import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"netbeams/globals"
 	"netbeams/logs"
 	"time"
 )
@@ -11,30 +12,30 @@ import (
 type TCPConnection struct {
 	Address string
 	Conn    net.Conn
-	Parent  *TCPServer
+	Parent  *Server
 	Logger  logs.Logger
-	Status  Status
-	State   State
+	Status  globals.Status
+	State   globals.State
 }
 
-func NewTCPConnection(conn net.Conn, addr string, parent *TCPServer, l *logs.Logger) TCPConnection {
+func NewTCPConnection(conn net.Conn, addr string, parent *Server, l *logs.Logger) TCPConnection {
 	return TCPConnection{
 		Address: addr,
 		Conn:    conn,
 		Parent:  parent,
 		Logger:  l.Fork("TCP-" + addr),
-		Status:  Healthy,
+		Status:  globals.Healthy,
 	}
 }
 
-func (c *TCPConnection) SetStatus(status Status) {
+func (c *TCPConnection) SetStatus(status globals.Status) {
 	if c.Status != status {
 		c.Logger.Infof("Connection %s status changed from %s to %s", c.Address, c.Status, status)
 		c.Status = status
 	}
 }
 
-func (c *TCPConnection) SetState(state State) {
+func (c *TCPConnection) SetState(state globals.State) {
 	if c.State != state {
 		c.Logger.Infof("Connection %s state changed from %s to %s", c.Address, c.State, state)
 		c.State = state
@@ -44,7 +45,7 @@ func (c *TCPConnection) SetState(state State) {
 func (c *TCPConnection) Listen() {
 	c.Logger.Info("Listening for messages")
 
-	if c.Status != Healthy {
+	if c.Status != globals.Healthy {
 		c.Logger.Info("Connection is not healthy")
 		return
 	}
@@ -55,38 +56,40 @@ func (c *TCPConnection) Listen() {
 
 	if c.Conn == nil {
 		c.Logger.Error("Connection is nil")
-		c.SetStatus(Errored)
+		c.SetStatus(globals.Errored)
 		return
 	}
 
+	c.Identify()
+
 	for {
+
 		switch c.Status {
-		case Kicked:
+		case globals.Kicked:
 			c.Logger.Info("Connection is kicked")
 			return
 
-		case Closed:
+		case globals.Closed:
 			c.Logger.Info("Connection is closed")
 			return
 
-		case Errored:
+		case globals.Errored:
 			c.Logger.Info("Connection is errored")
 			return
 		}
 
 		switch c.State {
-		case Unknown:
-			c.SetState(Identify)
+		case globals.Unknown:
+			c.SetState(globals.Identify)
 
-		case Identify:
-			c.Logger.Info("Identifying")
+		case globals.Identify:
 			err := c.Identify()
 			if err != nil {
 				c.Kick("Unable to identify")
 				return
 			}
 
-		case Authenticate:
+		case globals.Authenticate:
 			c.Logger.Info("Authenticating")
 			err := c.Authenticate()
 			if err != nil {
@@ -114,7 +117,7 @@ func (c *TCPConnection) Write(data []byte) {
 
 	_, err := c.Conn.Write(packet)
 	if err != nil {
-		c.SetStatus(Errored)
+		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error writing to connection - Additional output below")
 		c.Logger.Error(err.Error())
 	}
@@ -123,53 +126,6 @@ func (c *TCPConnection) Write(data []byte) {
 // Read from the connection
 func (c *TCPConnection) Read() ([]byte, error) {
 	c.Conn.SetDeadline(time.Now().Add(time.Second))
-	// HeaderBytes := make([]byte, 4)
-	// _, err := c.Conn.Read(HeaderBytes)
-
-	// if err != nil {
-	// 	if strings.HasSuffix(err.Error(), "i/o timeout") {
-	// 		c.Logger.Debug("Message polling timed out")
-	// 		return nil, nil
-	// 	}
-	// 	c.Logger.Error("Error reading message header - Additional output below")
-	// 	c.Logger.Fatal(err)
-	// 	return nil, err
-	// }
-
-	// c.Logger.Debugf("Received message header %x", HeaderBytes)
-
-	// // Read the header
-	// Header := binary.LittleEndian.Uint32(HeaderBytes)
-
-	// if Header > MaxHeaderSize {
-	// 	return nil, fmt.Errorf("header size limit exceeded")
-	// }
-
-	// c.Logger.Debugf("Received message header %d", Header)
-
-	// if Header >= MaxHeaderSize {
-	// 	return nil, fmt.Errorf("header size limit exceeded")
-	// }
-
-	// BodyPayload := make([]byte, Header)
-
-	// bytesRead, err := c.Conn.Read(BodyPayload)
-	// if err != nil {
-	// 	c.Logger.Error("Error reading message body - Additional output below")
-	// 	c.Logger.Fatal(err)
-
-	// 	return nil, err
-	// }
-
-	// Body := string(BodyPayload)
-
-	// c.Logger.Debug("Received message body")
-	// c.Logger.Debug(Body + "|END")
-
-	// if bytesRead < int(Header) {
-	// 	c.Logger.Warnf("Message body too short - %d bytes read out of %d", bytesRead, Header)
-	// 	return nil, fmt.Errorf("message body too short")
-	// }
 
 	packet, err := ReadPacket(c.Conn)
 
@@ -179,18 +135,45 @@ func (c *TCPConnection) Read() ([]byte, error) {
 }
 
 func (c *TCPConnection) Identify() error {
-	c.SetState(Authenticate)
+	// Allow the connection to hang for 5 seconds to allow for latency issues on startup
+	c.Conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+
+	// Read the first message
+	sState := make([]byte, 1)
+	_, err := c.Conn.Read(sState)
+	if err != nil {
+		c.SetStatus(globals.Errored)
+		c.Logger.Error("Error reading from connection - Additional output below")
+		c.Logger.Error(err.Error())
+		return err
+	}
+
+	c.Logger.Debugf("Received state: %s", sState)
+
+	switch sState[0] {
+	case 'C':
+		c.SetState(globals.Authenticate)
+	case 'D':
+		c.SetState(globals.Download)
+	case 'P':
+		c.Write([]byte("P"))
+		c.SetState(globals.PingOnly)
+	default:
+		c.Kick("Unknown starting state")
+		return fmt.Errorf("unknown starting state")
+	}
+
 	return nil
 }
 
 func (c *TCPConnection) Authenticate() error {
-	c.SetState(Authenticate)
+	c.SetState(globals.Authenticate)
 
 	payload, err := c.Read()
 
 	if err != nil {
 		c.Kick("Unable to read data")
-		c.SetStatus(Errored)
+		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
 		return err
@@ -208,18 +191,18 @@ func (c *TCPConnection) Close() {
 	if c.Conn != nil {
 		c.Conn.Close()
 	}
-	c.Status = Closed
+	c.Status = globals.Closed
 	delete(c.Parent.Connections, c.Address)
 }
 
 // Kick a connection with a given message
 func (c *TCPConnection) Kick(msg string) {
-	if c.Status != Healthy {
+	if c.Status != globals.Healthy {
 		c.Logger.Warn("Tried to kick a connection which is not healthy")
 		return
 	}
 
-	c.SetStatus(Kicked)
+	c.SetStatus(globals.Kicked)
 
 	c.Logger.Infof("Kicking connection %s", c.Address)
 	c.Logger.Infof("Reason: %s", msg)

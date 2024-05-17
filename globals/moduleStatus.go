@@ -1,4 +1,4 @@
-package server
+package globals
 
 type Status int
 
@@ -40,27 +40,6 @@ func (s Status) String() string {
 		return "Disconnected"
 	case Disconnecting:
 		return "Disconnecting"
-	default:
-		return "Unknown"
-	}
-}
-
-type State int
-
-const (
-	Unknown State = iota
-	Identify
-	Authenticate
-)
-
-func (s State) String() string {
-	switch s {
-	case Unknown:
-		return "Unknown"
-	case Identify:
-		return "Identify"
-	case Authenticate:
-		return "Authenticate"
 	default:
 		return "Unknown"
 	}
