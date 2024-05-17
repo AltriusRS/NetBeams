@@ -5,6 +5,7 @@ use (
 	./config
 	./environment
 	./globals
+	./http
 	./keyval
 	./logs
 	./server

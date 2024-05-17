@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"netbeams/globals"
+	"netbeams/http"
 	"netbeams/logs"
 	"strings"
 	"time"
@@ -17,6 +18,7 @@ type Server struct {
 	StatusCallback func(globals.Status)
 	Status         globals.Status
 	Connections    map[string]TCPConnection
+	API            http.API
 }
 
 func NewServer(port int, l *logs.Logger, cb func(globals.Status)) Server {
@@ -26,6 +28,7 @@ func NewServer(port int, l *logs.Logger, cb func(globals.Status)) Server {
 		Logger:         l.Fork("TCP Server"),
 		StatusCallback: cb,
 		Connections:    make(map[string]TCPConnection),
+		API:            http.NewAPI(l),
 	}
 }
 

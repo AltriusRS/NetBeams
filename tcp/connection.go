@@ -6,7 +6,8 @@ import (
 	"net"
 	"netbeams/globals"
 	"netbeams/logs"
-	"time"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 type TCPConnection struct {
@@ -123,20 +124,9 @@ func (c *TCPConnection) Write(data []byte) {
 	}
 }
 
-// Read from the connection
-func (c *TCPConnection) Read() ([]byte, error) {
-	c.Conn.SetDeadline(time.Now().Add(time.Second))
-
-	packet, err := ReadPacket(c.Conn)
-
-	c.Logger.Debugf("Received packet: %s", packet.data)
-
-	return nil, err
-}
-
 func (c *TCPConnection) Identify() error {
 	// Allow the connection to hang for 5 seconds to allow for latency issues on startup
-	c.Conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	// c.Conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 
 	// Read the first message
 	sState := make([]byte, 1)
@@ -169,7 +159,7 @@ func (c *TCPConnection) Identify() error {
 func (c *TCPConnection) Authenticate() error {
 	c.SetState(globals.Authenticate)
 
-	payload, err := c.Read()
+	packet, err := ReadPacket(c.Conn)
 
 	if err != nil {
 		c.Kick("Unable to read data")
@@ -179,9 +169,81 @@ func (c *TCPConnection) Authenticate() error {
 		return err
 	}
 
-	c.Logger.Debugf("Received payload: %s", payload)
+	text := packet.ToString()
 
-	return fmt.Errorf("not implemented")
+	rawVersion := text[2:len(text)]
+
+	// Parse the version provided by the client
+	version, err := semver.NewVersion(rawVersion)
+
+	if err != nil {
+		c.Kick("Unable to parse version")
+		c.SetStatus(globals.Errored)
+		c.Logger.Error("Error authenticating - Additional output below")
+		c.Logger.Fatal(err)
+		c.Logger.Error(rawVersion)
+		return err
+	}
+
+	if !globals.MaxClientVersionv.Check(version) {
+		c.Kick("Client version is too old")
+		c.SetStatus(globals.Errored)
+		c.Logger.Error("Error authenticating - Additional output below")
+		c.Logger.Fatal(err)
+		return err
+	}
+
+	if !globals.MinClientVersionv.Check(version) {
+		c.Kick("Client version is too new")
+		c.SetStatus(globals.Errored)
+		c.Logger.Error("Error authenticating - Additional output below")
+		c.Logger.Fatal(err)
+		return err
+	}
+
+	c.Logger.Debugf("Client version: %s - Continuing authentication", version)
+
+	c.Conn.Write([]byte("A"))
+
+	packet, err = ReadPacket(c.Conn)
+
+	if err != nil {
+		c.Kick("Unable to read data")
+		c.SetStatus(globals.Errored)
+		c.Logger.Error("Error authenticating - Additional output below")
+		c.Logger.Fatal(err)
+		return err
+	}
+
+	key := packet.ToString()
+
+	if len(key) > globals.MaxAuthKeyLength {
+		c.Kick("Authentication key is too long")
+		c.SetStatus(globals.Errored)
+		c.Logger.Error("Error authenticating - Additional output below")
+		c.Logger.Fatal(err)
+		return err
+	}
+
+	c.Logger.Debugf("Authentication key: %s", key)
+
+	success, err := c.Parent.API.AuthenticatePlayer(key)
+
+	if err != nil {
+		c.Kick("Unable to authenticate player")
+		c.SetStatus(globals.Errored)
+		c.Logger.Error("Error authenticating - Additional output below")
+		c.Logger.Fatal(err)
+		return err
+	}
+
+	if !success {
+		c.Kick("Unable to authenticate player")
+		c.SetStatus(globals.Errored)
+		c.Logger.Error("Error authenticating - Additional output below")
+		c.Logger.Fatal(err)
+		return err
+	}
 
 	return nil
 }
