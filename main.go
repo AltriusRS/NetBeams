@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"netbeams/config"
 	"netbeams/environment"
 	"netbeams/logs"
@@ -18,6 +19,13 @@ func main() {
 	defer logger.Terminate()
 
 	logger.Info("Welcome to NetBeams v" + environment.Version)
+
+	if environment.Context.IsDev {
+		fmt.Println("\x1b[40;33m⬕⬔\x1b[0m \x1b[40;33m⬕⬔\x1b[0m \x1b[40;33m⬕⬔\x1b[0m \x1b[40;33m⬕⬔\x1b[0m \x1b[40;33m⬕⬔\x1b[0m \x1b[40;33m⬕⬔\x1b[0m \x1b[40;33m⬕⬔\x1b[0m \x1b[40;33m⬕⬔\x1b[0m")
+		fmt.Println(" DEVELOPER ENVIRONMENT")
+		fmt.Println("\x1b[40;33m⬕⬔\x1b[0m \x1b[40;33m⬕⬔\x1b[0m \x1b[40;33m⬕⬔\x1b[0m \x1b[40;33m⬕⬔\x1b[0m \x1b[40;33m⬕⬔\x1b[0m \x1b[40;33m⬕⬔\x1b[0m \x1b[40;33m⬕⬔\x1b[0m \x1b[40;33m⬕⬔\x1b[0m")
+
+	}
 
 	logger.Info("Loading congiguration file")
 	logger.Info("Loading data")

@@ -13,8 +13,8 @@ type Application struct {
 	Config    config.BaseConfig
 	TCPServer tcp.Server
 	Logger    logs.Logger
-
-	tasks map[string]*globals.Status
+	Players   map[string]*Player
+	tasks     map[string]*globals.Status
 }
 
 func NewApplication(config config.BaseConfig, l *logs.Logger) Application {

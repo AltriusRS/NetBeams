@@ -1,8 +1,6 @@
 package environment
 
 import (
-	"fmt"
-
 	"github.com/Masterminds/semver/v3"
 )
 
@@ -62,7 +60,7 @@ type BuildContext struct {
 	GOGCCFLAGS             string
 }
 
-var Version = "UNSET"            // Version of the application
+var Version = "ersion UNKNOWN"   // Version of the application
 var GitSha = "UNSET"             // Git SHA of the application
 var GitBranch = "UNSET"          // Git branch of the application
 var BuildTime = "UNSET"          // Build time of the application
@@ -115,7 +113,7 @@ var PKG_CONFIG = "UNSET"         // Go Environment Variable
 var GOGCCFLAGS = "UNSET"         // Go Environment Variable
 
 var Context = BuildContext{
-	Version:                "UNSET",
+	Version:                "ersion \x1b[38;2;255;100;0mDEVELOPER \x1b[43;255;165;100mBUILD\x1b[0m",
 	GitSha:                 "UNSET",
 	GitBranch:              "UNSET",
 	BuildTime:              "UNSET",
@@ -171,13 +169,6 @@ var Context = BuildContext{
 }
 
 func GetBuildContext() {
-
-	fmt.Printf("isDev: %s\n", IsDev)
-	fmt.Printf("Version: %s\n", Version)
-	fmt.Printf("GitSha: %s\n", GitSha)
-	fmt.Printf("GitBranch: %s\n", GitBranch)
-	fmt.Printf("BuildTime: %s\n", BuildTime)
-	fmt.Printf("BuildUser: %s\n", BuildUser)
 
 	SemverMaxClientVersion, _ := semver.NewConstraint("< " + MaxProtocolVersion)
 	SemverMinClientVersion, _ := semver.NewConstraint(">= " + MinProtocolVersion)

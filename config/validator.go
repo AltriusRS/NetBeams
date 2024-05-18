@@ -127,6 +127,18 @@ func (c *GeneralConfig) Validate() []ConfigError {
 		})
 	}
 
+	if len(c.Password) > 0 {
+		c.Password = ""
+		errors = append(errors, ConfigError{
+			code:        0x0007,
+			message:     "Unsupported Parameter",
+			details:     "passwords are not supported by NetBeams",
+			usesDefault: true,
+			fatal:       false,
+			warning:     true,
+		})
+	}
+
 	return errors
 }
 

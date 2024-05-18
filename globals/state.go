@@ -8,6 +8,7 @@ const (
 	Authenticate
 	Download
 	PingOnly
+	Password
 )
 
 func (s State) String() string {
@@ -18,6 +19,12 @@ func (s State) String() string {
 		return "Identify"
 	case Authenticate:
 		return "Authenticate"
+	case Download:
+		return "Download"
+	case PingOnly:
+		return "PingOnly"
+	case Password:
+		return "Password"
 	default:
 		return "Unknown"
 	}
