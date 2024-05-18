@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"netbeams/environment"
 	"netbeams/globals"
 	"netbeams/logs"
 	"time"
@@ -16,6 +17,7 @@ type API struct {
 	client *http.Client
 }
 
+// NewAPI creates a new API object
 func NewAPI(l *logs.Logger) API {
 	return API{
 		Logger: l.Fork("API"),
@@ -30,7 +32,9 @@ func NewAPI(l *logs.Logger) API {
 	}
 }
 
-func (a *API) AuthenticatePlayer(key string) (bool, error) {
+// AuthenticatePlayer authenticates a player with the BeamMP API and returns a Player object
+// if successful, or nil and an error if not
+func (a *API) AuthenticatePlayer(key string) (*Player, error) {
 	url := fmt.Sprintf("%s/pkToUser", globals.BaseAuthAPIURL)
 
 	body := map[string]string{
@@ -41,44 +45,37 @@ func (a *API) AuthenticatePlayer(key string) (bool, error) {
 
 	payload, err := json.Marshal(body)
 
+	if err != nil {
+		return nil, err
+	}
+
 	req, err := http.NewRequest("POST", url, bytes.NewReader(payload))
 
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", globals.UserAgent)
+	req.Header.Set("User-Agent", fmt.Sprintf("NetBeams/%s", environment.Context.Version))
 
 	resp, err := a.client.Do(req)
 
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var wholeBody []byte
+	var player Player
 
-	resp.Body = http.MaxBytesReader(nil, resp.Body, resp.ContentLength)
-
-	fmt.Println(resp.StatusCode)
-	fmt.Println(resp.Header)
-	fmt.Println(string(wholeBody))
-
-	var respBody map[string]any
-
-	err = json.NewDecoder(resp.Body).Decode(&respBody)
+	err = json.NewDecoder(resp.Body).Decode(&player)
 
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
-	j, _ := json.MarshalIndent(respBody, "", "    ")
-	fmt.Println(string(j))
-
-	return true, nil
+	return &player, nil
 }

@@ -171,7 +171,7 @@ func (l *Logger) Log(level LogLevel, message string) {
 	}
 
 	// If the log level is lower than the current log level, do nothing
-	if level < l.Level {
+	if level < l.Level && !environment.Context.IsDev {
 		return
 	}
 

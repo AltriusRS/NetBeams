@@ -2,8 +2,9 @@ package tcp
 
 import (
 	"encoding/binary"
-	"fmt"
 	"net"
+	"netbeams/config"
+	"netbeams/environment"
 	"netbeams/globals"
 	"netbeams/logs"
 
@@ -63,48 +64,48 @@ func (c *TCPConnection) Listen() {
 
 	c.Identify()
 
-	for {
+	// for {
 
-		switch c.Status {
-		case globals.Kicked:
-			c.Logger.Info("Connection is kicked")
-			return
+	// 	switch c.Status {
+	// 	case globals.Kicked:
+	// 		c.Logger.Info("Connection is kicked")
+	// 		return
 
-		case globals.Closed:
-			c.Logger.Info("Connection is closed")
-			return
+	// 	case globals.Closed:
+	// 		c.Logger.Info("Connection is closed")
+	// 		return
 
-		case globals.Errored:
-			c.Logger.Info("Connection is errored")
-			return
-		}
+	// 	case globals.Errored:
+	// 		c.Logger.Info("Connection is errored")
+	// 		return
+	// 	}
 
-		switch c.State {
-		case globals.Unknown:
-			c.SetState(globals.Identify)
+	// 	switch c.State {
+	// 	case globals.Unknown:
+	// 		c.SetState(globals.Identify)
 
-		case globals.Identify:
-			err := c.Identify()
-			if err != nil {
-				c.Kick("Unable to identify")
-				return
-			}
+	// 	case globals.Identify:
+	// 		err := c.Identify()
+	// 		if err != nil {
+	// 			c.Kick("Unable to identify")
+	// 			return
+	// 		}
 
-		case globals.Authenticate:
-			c.Logger.Info("Authenticating")
-			err := c.Authenticate()
-			if err != nil {
-				c.Kick("Unable to authenticate")
-				return
-			}
+	// 	case globals.Authenticate:
+	// 		c.Logger.Info("Authenticating")
+	// 		err := c.Authenticate()
+	// 		if err != nil {
+	// 			c.Kick("Unable to authenticate")
+	// 			return
+	// 		}
 
-		default:
-			c.Logger.Warnf("Unknown state: %s", c.State)
-			c.Kick("Unknown state")
-			return
-		}
+	// 	default:
+	// 		c.Logger.Warnf("Unknown state: %s", c.State)
+	// 		c.Kick("Unknown state")
+	// 		return
+	// 	}
 
-	}
+	// }
 }
 
 func (c *TCPConnection) Write(data []byte) {
@@ -124,7 +125,7 @@ func (c *TCPConnection) Write(data []byte) {
 	}
 }
 
-func (c *TCPConnection) Identify() error {
+func (c *TCPConnection) Identify() {
 	// Allow the connection to hang for 5 seconds to allow for latency issues on startup
 	// c.Conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 
@@ -135,7 +136,7 @@ func (c *TCPConnection) Identify() error {
 		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error reading from connection - Additional output below")
 		c.Logger.Error(err.Error())
-		return err
+		return
 	}
 
 	c.Logger.Debugf("Received state: %s", sState)
@@ -143,22 +144,24 @@ func (c *TCPConnection) Identify() error {
 	switch sState[0] {
 	case 'C':
 		c.SetState(globals.Authenticate)
+		c.Authenticate()
 	case 'D':
 		c.SetState(globals.Download)
 	case 'P':
 		c.Write([]byte("P"))
 		c.SetState(globals.PingOnly)
 	default:
+		c.Logger.Error("Unknown starting state - Disconnecting - Additional output below")
+		c.Logger.Errorf("Unknown starting state: %s", sState)
 		c.Kick("Unknown starting state")
-		return fmt.Errorf("unknown starting state")
+		return
 	}
-
-	return nil
 }
 
-func (c *TCPConnection) Authenticate() error {
+func (c *TCPConnection) Authenticate() {
 	c.SetState(globals.Authenticate)
 
+	// Read the version information from the client
 	packet, err := ReadPacket(c.Conn)
 
 	if err != nil {
@@ -166,12 +169,12 @@ func (c *TCPConnection) Authenticate() error {
 		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
-		return err
+		return
 	}
 
 	text := packet.ToString()
 
-	rawVersion := text[2:len(text)]
+	rawVersion := text[2:]
 
 	// Parse the version provided by the client
 	version, err := semver.NewVersion(rawVersion)
@@ -182,28 +185,29 @@ func (c *TCPConnection) Authenticate() error {
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
 		c.Logger.Error(rawVersion)
-		return err
+		return
 	}
 
-	if !globals.MaxClientVersionv.Check(version) {
+	if !environment.Context.SemverMaxClientVersion.Check(version) {
 		c.Kick("Client version is too old")
 		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
-		return err
+		return
 	}
 
-	if !globals.MinClientVersionv.Check(version) {
+	if !environment.Context.SemverMinClientVersion.Check(version) {
 		c.Kick("Client version is too new")
 		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
-		return err
+		return
 	}
 
 	c.Logger.Debugf("Client version: %s - Continuing authentication", version)
 
-	c.Conn.Write([]byte("A"))
+	// The client version is valid, we can now read the authentication key
+	c.Write([]byte("A"))
 
 	packet, err = ReadPacket(c.Conn)
 
@@ -212,7 +216,7 @@ func (c *TCPConnection) Authenticate() error {
 		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
-		return err
+		return
 	}
 
 	key := packet.ToString()
@@ -222,30 +226,39 @@ func (c *TCPConnection) Authenticate() error {
 		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
-		return err
+		return
 	}
 
 	c.Logger.Debugf("Authentication key: %s", key)
 
-	success, err := c.Parent.API.AuthenticatePlayer(key)
+	player, err := c.Parent.API.AuthenticatePlayer(key)
 
 	if err != nil {
 		c.Kick("Unable to authenticate player")
 		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
-		return err
+		return
 	}
 
-	if !success {
+	if player == nil {
 		c.Kick("Unable to authenticate player")
 		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
-		return err
+		return
 	}
 
-	return nil
+	c.Logger.Debugf("Player: %s", player.Name)
+	c.Logger.Debugf("UID: %s", player.Uid)
+	c.Logger.Infof("Changing logger ID to %s", player.Name)
+	c.Logger.Module = player.Name
+
+	if config.Configuration.General.Password != "" {
+		c.Logger.Debug("Password is set")
+		c.Logger.Debug("Sending password request")
+	}
+
 }
 
 func (c *TCPConnection) Close() {
@@ -270,5 +283,5 @@ func (c *TCPConnection) Kick(msg string) {
 	c.Logger.Infof("Reason: %s", msg)
 
 	c.Write([]byte("K" + msg)) // Kick the connection
-	c.Close()
+	// c.Close()
 }

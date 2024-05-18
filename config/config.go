@@ -7,6 +7,8 @@ import (
 	"github.com/pelletier/go-toml"
 )
 
+var Configuration BaseConfig
+
 func Load(l *logs.Logger) BaseConfig {
 	content, err := os.ReadFile("./ServerConfig.toml")
 
@@ -37,4 +39,8 @@ func Load(l *logs.Logger) BaseConfig {
 	}
 
 	return config
+}
+
+func GetConfig() BaseConfig {
+	return Configuration
 }

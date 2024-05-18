@@ -21,6 +21,7 @@ type GeneralConfig struct {
 	Map            string `toml:"Map"`            // Map to use
 	Description    string `toml:"Description"`    // Description of the server
 	ResourceFolder string `toml:"ResourceFolder"` // Folder to load resources from
+	Password       string `toml:"Password"`       // Password to use for the server
 }
 
 // MiscConfig is the miscellaneous server settings
@@ -37,4 +38,9 @@ type NetBeamsConfig struct {
 	LogLevel   string `toml:"LogLevel"`
 	LogFile    string `toml:"LogFile"`
 	ModServer  string `toml:"ModServer"`
+}
+
+type AuthenticationConfig struct {
+	AllowGuests    bool `toml:"AllowGuests"`
+	AllowStreamers bool `toml:"AllowStreamers"`
 }

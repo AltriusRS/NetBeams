@@ -2,6 +2,7 @@ package main
 
 import (
 	"netbeams/config"
+	"netbeams/environment"
 	"netbeams/logs"
 	"netbeams/server"
 	"os"
@@ -10,10 +11,14 @@ import (
 )
 
 func main() {
+	environment.GetBuildContext()
 
 	// Spawn a new logger instance
 	logger := logs.NetLogger("Main")
 	defer logger.Terminate()
+
+	logger.Info("Welcome to NetBeams v" + environment.Version)
+
 	logger.Info("Loading congiguration file")
 	logger.Info("Loading data")
 	serverConfig := config.Load(&logger)
