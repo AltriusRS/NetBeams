@@ -65,48 +65,17 @@ func (c *TCPConnection) Listen() {
 
 	c.Identify()
 
-	// for {
+	packet := NewEmptyPacket()
 
-	// 	switch c.Status {
-	// 	case globals.Kicked:
-	// 		c.Logger.Info("Connection is kicked")
-	// 		return
+	packet.WriteString("M" + config.Configuration.General.Map)
 
-	// 	case globals.Closed:
-	// 		c.Logger.Info("Connection is closed")
-	// 		return
+	c.Write(packet.Serialize())
 
-	// 	case globals.Errored:
-	// 		c.Logger.Info("Connection is errored")
-	// 		return
-	// 	}
+	c.SetStatus(globals.Healthy)
 
-	// 	switch c.State {
-	// 	case globals.Unknown:
-	// 		c.SetState(globals.Identify)
-
-	// 	case globals.Identify:
-	// 		err := c.Identify()
-	// 		if err != nil {
-	// 			c.Kick("Unable to identify")
-	// 			return
-	// 		}
-
-	// 	case globals.Authenticate:
-	// 		c.Logger.Info("Authenticating")
-	// 		err := c.Authenticate()
-	// 		if err != nil {
-	// 			c.Kick("Unable to authenticate")
-	// 			return
-	// 		}
-
-	// 	default:
-	// 		c.Logger.Warnf("Unknown state: %s", c.State)
-	// 		c.Kick("Unknown state")
-	// 		return
-	// 	}
-
-	// }
+	for c.Status == globals.Healthy {
+		time.Sleep(time.Second)
+	}
 }
 
 func (c *TCPConnection) Write(data []byte) {
@@ -308,7 +277,9 @@ func (c *TCPConnection) HandlePassword() bool {
 func (c *TCPConnection) Close() {
 	c.Logger.Info("Closing connection")
 	if c.Conn != nil {
+		c.Kick("Server shutting down")
 		c.Conn.Close()
+		c.SetStatus(globals.Closed)
 	}
 	c.Status = globals.Closed
 	delete(c.Parent.Connections, c.Address)

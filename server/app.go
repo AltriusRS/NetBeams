@@ -6,14 +6,15 @@ import (
 	"netbeams/globals"
 	"netbeams/logs"
 	"netbeams/tcp"
+	"netbeams/udp"
 	"time"
 )
 
 type Application struct {
 	Config    config.BaseConfig
 	TCPServer tcp.Server
+	UDPServer udp.Server
 	Logger    logs.Logger
-	Players   map[string]*Player
 	tasks     map[string]*globals.Status
 }
 
@@ -39,7 +40,23 @@ func (app *Application) StartMainNode() {
 	sucess := app.TCPServer.Start()
 
 	if !sucess {
+		// The server cannot continue if these services fail to start
 		app.Logger.Fatal(errors.New("failed to start tcp server"))
+		app.Shutdown()
+	}
+
+	// Spawn the UDP server manager instance
+	app.UDPServer = udp.NewServer("0.0.0.0", app.Config.General.Port, &app.Logger, func(s globals.Status) {
+		app.SetStatus("udp", &s)
+	})
+
+	// Start the UDP server
+	sucess = app.UDPServer.Start()
+
+	if !sucess {
+		// The server cannot continue if these services fail to start
+		app.Logger.Fatal(errors.New("failed to start udp server"))
+		app.Shutdown()
 	}
 
 	app.Logger.Info("Server started")
@@ -48,6 +65,13 @@ func (app *Application) StartMainNode() {
 func (app *Application) Shutdown() {
 	app.Logger.Info("Shutting down...")
 	app.TCPServer.Stop()
+
+	// Close all connections
+	for _, connection := range app.TCPServer.Connections {
+		connection.Close()
+	}
+
+	app.UDPServer.Shutdown()
 	app.Logger.Info("Shutdown complete")
 }
 
