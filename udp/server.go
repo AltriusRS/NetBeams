@@ -52,6 +52,7 @@ func (s *Server) Shutdown() {
 // Start the UDP server
 func (s *Server) Start() bool {
 	s.Logger.Info("Starting UDP server")
+	s.SetStatus(globals.Starting)
 
 	udpAddr, err := net.ResolveUDPAddr("udp", s.Addr+":"+strconv.Itoa(s.Port))
 
@@ -72,19 +73,6 @@ func (s *Server) Start() bool {
 	go s.Listen()
 
 	return true
-
-	// for {
-	// 	buf := make([]byte, 1024)
-	// 	n, addr, err := conn.ReadFromUDP(buf)
-
-	// 	if err != nil {
-	// 		s.Logger.Error("Error reading UDP packet: " + err.Error())
-	// 		continue
-	// 	}
-
-	// 	s.Logger.Info("Received UDP packet from " + addr.String())
-	// 	s.Logger.Infof("Packet: %s", buf[:n])
-	// }
 }
 
 func (s *Server) Listen() {
@@ -96,6 +84,12 @@ func (s *Server) Listen() {
 		n, addr, err := s.Listener.ReadFromUDP(buf)
 
 		if err != nil {
+			// If the error is a closed network connection, break out of the loop
+			if err.Error() == "use of closed network connection" {
+				s.Logger.Info("UDP listener closed")
+				break
+			}
+			// Otherwise, continue attempting to listen to packets
 			s.Logger.Error("Error reading UDP packet: " + err.Error())
 			continue
 		}
