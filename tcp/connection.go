@@ -240,38 +240,40 @@ func (c *TCPConnection) Authenticate() {
 // HandlePassword handles the password authentication
 // TODO: Add password authentication support when that is better understood
 func (c *TCPConnection) HandlePassword() bool {
+	// Since passwords are not supported, we can merely return false,
+	// to indicate that the password was not accepted
 	return false
 
-	c.Logger.Debug("Sending password request")
-	c.Write([]byte("S"))
-	c.SetState(globals.Password)
+	// c.Logger.Debug("Sending password request")
+	// c.Write([]byte("S"))
+	// c.SetState(globals.Password)
 
-	// Read the password from the client
-	packet, err := ReadPacket(c.Conn)
+	// // Read the password from the client
+	// packet, err := ReadPacket(c.Conn)
 
-	if err != nil {
-		c.Kick("Unable to read data")
-		c.SetStatus(globals.Errored)
-		c.Logger.Error("Error authenticating - Additional output below")
-		c.Logger.Fatal(err)
-		return false
-	}
-
-	password := packet.ToString()
-
-	c.Logger.Debugf("Password: %s", password)
-
-	// if password != config.Configuration.General.Password {
-	// 	c.Kick("Invalid password")
+	// if err != nil {
+	// 	c.Kick("Unable to read data")
 	// 	c.SetStatus(globals.Errored)
-	// 	c.Logger.Error("Error authenticating - Invalid password")
+	// 	c.Logger.Error("Error authenticating - Additional output below")
+	// 	c.Logger.Fatal(err)
 	// 	return false
 	// }
 
-	// wait 10 secodns before closing
-	time.Sleep(10 * time.Second)
+	// password := packet.ToString()
 
-	return false
+	// c.Logger.Debugf("Password: %s", password)
+
+	// // if password != config.Configuration.General.Password {
+	// // 	c.Kick("Invalid password")
+	// // 	c.SetStatus(globals.Errored)
+	// // 	c.Logger.Error("Error authenticating - Invalid password")
+	// // 	return false
+	// // }
+
+	// // wait 10 secodns before closing
+	// time.Sleep(10 * time.Second)
+
+	// return false
 }
 
 func (c *TCPConnection) Close() {
