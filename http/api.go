@@ -13,14 +13,16 @@ import (
 
 // API is a wrapper around http.Client tailored for the BeamMP API
 type API struct {
+	globals.Service
 	Logger logs.Logger
 	client *http.Client
 }
 
-// NewAPI creates a new API object
-func NewAPI(l *logs.Logger) API {
-	return API{
-		Logger: l.Fork("API"),
+func Service() *API {
+
+	api := API{
+		Service: globals.SpinUp("BeamMP API"),
+		Logger:  logs.NetLogger("BeamMP API"),
 		client: &http.Client{
 			Transport: &http.Transport{
 				MaxIdleConns:       5,
@@ -30,6 +32,19 @@ func NewAPI(l *logs.Logger) API {
 			Timeout: time.Second * 10,
 		},
 	}
+
+	// Register the service hooks
+	api.RegisterServiceHooks(api.Start, api.Stop, nil)
+
+	return &api
+}
+
+func (a *API) Start() (globals.Status, error) {
+	return globals.Healthy, nil
+}
+
+func (a *API) Stop() (globals.Status, error) {
+	return globals.Stopped, nil
 }
 
 // AuthenticatePlayer authenticates a player with the BeamMP API and returns a Player object
@@ -41,7 +56,7 @@ func (a *API) AuthenticatePlayer(key string) (*Player, error) {
 		"key": key,
 	}
 
-	a.Logger.Debug("Authenticating player")
+	a.Debug("Authenticating player")
 
 	payload, err := json.Marshal(body)
 

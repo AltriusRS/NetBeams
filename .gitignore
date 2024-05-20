@@ -3,3 +3,6 @@ data/
 mods/
 ServerConfig.toml
 netbeams.exe
+BeamMP-Server.exe
+.Threads.log
+Server.log

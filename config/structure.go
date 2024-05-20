@@ -33,14 +33,16 @@ type MiscConfig struct {
 
 // NetBeamsConfig is the settings specific to NetBeams
 type NetBeamsConfig struct {
-	MasterNode string `toml:"MasterNode"`
-	MasterPort int    `toml:"MasterPort"`
-	LogLevel   string `toml:"LogLevel"`
-	LogFile    string `toml:"LogFile"`
-	ModServer  string `toml:"ModServer"`
+	MasterNode string `toml:"MasterNode"` // The IP address of the master node
+	MasterPort int    `toml:"MasterPort"` // The port of the master node
+	LogLevel   string `toml:"LogLevel"`   // The log level of the server
+	LogFile    string `toml:"LogFile"`    // The log file of the server
+	ModServer  string `toml:"ModServer"`  // The IP address of the mod server (This can be grabbed from the master node at startup)
 }
 
 type AuthenticationConfig struct {
-	AllowGuests    bool `toml:"AllowGuests"`
-	AllowStreamers bool `toml:"AllowStreamers"`
+	AllowGuests          bool   `toml:"AllowGuests"`          // Whether guests are allowed to join the server
+	AllowContentCreators bool   `toml:"AllowContentCreators"` // Whether content creators are allowed to join the server
+	AllowStaff           bool   `toml:"AllowStaff"`           // Whether BeamMP staff are allowed to join the server
+	MinimumAccountAge    string `toml:"MinimumAccountAge"`    // The minimum age of an account to be able to join the server
 }

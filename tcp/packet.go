@@ -83,21 +83,21 @@ func (p *Packet) ReadData(c net.Conn) ([]byte, error) {
 	return data, nil
 }
 
-func ReadPacket(c net.Conn) (*Packet, error) {
+func ReadPacket(c net.Conn) (Packet, error) {
 	var packet Packet
 	_, err := packet.ReadHeader(c)
 
 	if err != nil {
-		return nil, err
+		return packet, err
 	}
 
 	_, err = packet.ReadData(c)
 
 	if err != nil {
-		return nil, err
+		return packet, err
 	}
 
-	return &packet, nil
+	return packet, nil
 }
 
 func (Packet) FromString(s string) *Packet {
@@ -154,4 +154,16 @@ func (p *Packet) Serialize() []byte {
 	binary.LittleEndian.PutUint32(payload, uint32(p.Header))
 	payload = append(payload, p.data...)
 	return payload
+}
+
+func (p *Packet) Code() rune {
+	return rune(p.data[0])
+}
+
+func (p *Packet) Data() []byte {
+	return p.data[1:]
+}
+
+func (p *Packet) IsEmpty() bool {
+	return p.Header == 0 && len(p.data) == 0
 }

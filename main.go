@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"netbeams/config"
 	"netbeams/environment"
+	"netbeams/globals"
+	"netbeams/http"
 	"netbeams/logs"
-	"netbeams/server"
-	"os"
-	"os/signal"
-	"syscall"
+	"netbeams/tcp"
+	"netbeams/udp"
 )
 
 func main() {
@@ -43,44 +43,29 @@ func main() {
 	logger.Info("Mode: " + mode)
 
 	// Spawn a new application instance
-	app := server.NewApplication(serverConfig, &logger)
+	globals.NewApplication(serverConfig, &logger)
 
 	// Pass application to signal handler to allow graceful shutdown
-	signalHandler(&app)
+	globals.App.RegisterSignalHandler()
+
+	// Spawn the required services
+	globals.App.AddService(http.Service())
+	globals.App.AddService(tcp.Service())
+	globals.App.AddService(udp.Service())
 
 	switch mode {
 	case "main":
 		logger.Info("Starting main node")
-		app.StartMainNode()
+
 	case "node":
 		logger.Error("Node mode not implemented yet")
 		logger.Info("Please set the master node to 'localhost' in the configuration file")
+		return
 		// logger.Info("Starting node")
 		// app.StartNode()
 	}
 
-	app.Wait() // Wait for the application to terminate
+	globals.App.Start()
+	globals.App.Wait() // Wait for the application to terminate
 	logger.Info("Exiting")
-}
-
-// goroutine to handle signals and gracefully shutdown the application
-func signalHandler(app *server.Application) {
-	channel := make(chan os.Signal, 1)
-
-	exit := make(chan bool, 1)
-
-	signal.Notify(channel, syscall.SIGTERM, syscall.SIGINT)
-
-	go func() {
-		sig := <-channel
-		app.Logger.Info("Received signal: " + sig.String())
-		exit <- true
-	}()
-
-	go func() {
-		<-exit
-		app.Logger.Info("Shutdown signal handler started - Closing in 5 seconds")
-		app.Logger.Info("Closing application")
-		app.Shutdown()
-	}()
 }

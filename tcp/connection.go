@@ -6,6 +6,7 @@ import (
 	"netbeams/config"
 	"netbeams/environment"
 	"netbeams/globals"
+	"netbeams/http"
 	"netbeams/logs"
 	"time"
 
@@ -73,8 +74,21 @@ func (c *TCPConnection) Listen() {
 
 	c.SetStatus(globals.Healthy)
 
+	packet, err := ReadPacket(c.Conn)
+
+	if err != nil {
+		if err.Error() == "EOF" {
+			c.Logger.Debugf("Connection is closed on TCP by client")
+		}
+	}
+
 	for c.Status == globals.Healthy {
-		time.Sleep(time.Second)
+		breakLoop := c.RuntimeLoop()
+		if breakLoop {
+			c.Kick("Connection closed by server")
+			c.SetStatus(globals.Shutdown)
+			return
+		}
 	}
 }
 
@@ -201,7 +215,7 @@ func (c *TCPConnection) Authenticate() {
 
 	c.Logger.Debugf("Authentication key: %s", key)
 
-	player, err := c.Parent.API.AuthenticatePlayer(key)
+	player, err := globals.App.GetService("BeamMP API").(*http.API).AuthenticatePlayer(key)
 
 	if err != nil {
 		c.Kick("Unable to authenticate player")
@@ -221,6 +235,9 @@ func (c *TCPConnection) Authenticate() {
 
 	c.Logger.Debugf("Player: %s", player.Name)
 	c.Logger.Debugf("UID: %s", player.Uid)
+	c.Logger.Debugf("Roles: %s", player.Roles)
+	c.Logger.Debugf("Identifiers: %s", player.Identifiers)
+	c.Logger.Debugf("Is Guest?: %t", player.Guest)
 	c.Logger.Infof("Changing logger ID to %s", player.Name)
 	c.Logger.Module = player.Name
 
@@ -281,9 +298,9 @@ func (c *TCPConnection) Close() {
 	if c.Conn != nil {
 		c.Kick("Server shutting down")
 		c.Conn.Close()
-		c.SetStatus(globals.Closed)
+		c.SetStatus(globals.Shutdown)
 	}
-	c.Status = globals.Closed
+	c.Status = globals.Shutdown
 	delete(c.Parent.Connections, c.Address)
 }
 
@@ -294,11 +311,60 @@ func (c *TCPConnection) Kick(msg string) {
 		return
 	}
 
-	c.SetStatus(globals.Kicked)
+	c.SetStatus(globals.Shutdown)
 
 	c.Logger.Infof("Kicking connection %s", c.Address)
 	c.Logger.Infof("Reason: %s", msg)
 
 	c.Write([]byte("K" + msg)) // Kick the connection
 	// c.Close()
+}
+
+// Main gamemplay loop for the connection
+func (c *TCPConnection) RuntimeLoop() bool {
+	c.Conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+
+	packet, err := ReadPacket(c.Conn)
+
+	if packet.IsEmpty() {
+		if err != nil {
+			switch err.Error() {
+
+			// The packet is empty, because the connection was EOF
+			case "EOF":
+				// Sleep the thread for a second to allow the client to begin transmitting
+				time.Sleep(time.Second)
+				return false
+
+			// The connection timed out
+			case "i/o timeout":
+				c.Logger.Debug("I/O Timeout Err - Ignoring")
+				return false
+
+			// Handle uncaught error cases
+			default:
+				c.Logger.Error("Error reading from connection - Additional output below")
+				c.Logger.Error(err.Error())
+				return true
+			}
+		}
+
+	}
+
+	c.GameplayParser(packet)
+
+	// if err != nil {
+
+	// 	c.Kick("Unable to read data")
+	// 	c.SetStatus(globals.Errored)
+	// 	c.Logger.Error("Error reading from connection - Additional output below")
+	// 	c.Logger.Error(err.Error())
+	// 	return
+	// }
+
+	return false
+}
+
+func (c *TCPConnection) GameplayParser(Packet Packet) {
+	c.Logger.Debugf("Received packet: %s", Packet.data)
 }
