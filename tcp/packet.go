@@ -121,6 +121,20 @@ func (p *Packet) WriteBytes(b []byte) {
 	p.Header = int32(len(p.data))
 }
 
+func (p *Packet) WriteInt8(i int8) {
+	bytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(bytes, uint32(i))
+	p.data = append(p.data, bytes[3])
+	p.Header = int32(len(p.data))
+}
+
+func (p *Packet) WriteInt16(i int16) {
+	bytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(bytes, uint32(i))
+	p.data = append(p.data, bytes[1:3]...)
+	p.Header = int32(len(p.data))
+}
+
 func (p *Packet) WriteInt32(i int32) {
 	bin := make([]byte, 4)
 	binary.LittleEndian.PutUint32(p.data, uint32(i))
@@ -152,12 +166,14 @@ func (p *Packet) WriteFloat64(f float64) {
 func (p *Packet) Serialize() []byte {
 	payload := make([]byte, p.Header+4)
 	binary.LittleEndian.PutUint32(payload, uint32(p.Header))
+	payload = payload[:4]
 	payload = append(payload, p.data...)
+
 	return payload
 }
 
-func (p *Packet) Code() rune {
-	return rune(p.data[0])
+func (p *Packet) Code(position int) rune {
+	return rune(p.data[position])
 }
 
 func (p *Packet) Data() []byte {
@@ -166,4 +182,8 @@ func (p *Packet) Data() []byte {
 
 func (p *Packet) IsEmpty() bool {
 	return p.Header == 0 && len(p.data) == 0
+}
+
+func (p *Packet) String() string {
+	return string(p.data)
 }

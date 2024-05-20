@@ -110,7 +110,7 @@ func (app *Application) Wait() {
 			status := service.GetStatus()
 
 			if status != nil {
-				if *status != Shutdown && *status != Errored && *status != Restarting && *status != Stopped {
+				if *status != StatusShutdown && *status != StatusErrored && *status != StatusRestarting && *status != StatusStopped {
 					active = append(active, []string{name, status.String()})
 				}
 			}

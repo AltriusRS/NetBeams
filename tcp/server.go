@@ -34,12 +34,12 @@ func Service() *Server {
 }
 
 func (s *Server) Start() (globals.Status, error) {
-	s.SetStatus(globals.Starting)
+	s.SetStatus(globals.StatusStarting)
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", s.Addr, s.Port))
 
 	if err != nil {
 		s.Error("Error resolving TCP address - Additional output below")
-		return globals.Errored, err
+		return globals.StatusErrored, err
 	}
 
 	s.Info("Starting TCP Server")
@@ -48,41 +48,41 @@ func (s *Server) Start() (globals.Status, error) {
 
 	if err != nil {
 		s.Error("Error starting TCP listener - Additional output below")
-		return globals.Errored, err
+		return globals.StatusErrored, err
 	}
 
 	s.Info("TCP Server started")
 	s.Listener = listener
 
 	go s.Listen()
-	return globals.Healthy, nil
+	return globals.StatusHealthy, nil
 }
 
 func (s *Server) Stop() (globals.Status, error) {
-	s.SetStatus(globals.Stopping)
+	s.SetStatus(globals.StatusStopping)
 
 	delay := time.Second
 
-	for *s.Status == globals.Stopped {
+	for *s.Status == globals.StatusStopped {
 		time.Sleep(delay)
 		s.Info("Waiting for listener to stop")
 	}
 
-	return globals.Shutdown, nil
+	return globals.StatusShutdown, nil
 }
 
 func (s *Server) Listen() {
-	s.SetStatus(globals.Healthy)
+	s.SetStatus(globals.StatusHealthy)
 
 	for {
 		s.Listener.SetDeadline(time.Now().Add(time.Second))
-		if *s.Status != globals.Healthy {
+		if *s.Status != globals.StatusHealthy {
 			err := s.Listener.Close()
 			if err != nil {
 				s.Error("Error closing listener - Additional output below")
 				s.Fatal(err)
 			}
-			s.SetStatus(globals.Stopped)
+			s.SetStatus(globals.StatusStopped)
 			break
 		}
 

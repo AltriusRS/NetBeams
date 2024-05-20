@@ -38,43 +38,43 @@ func (s *Server) Shutdown() (globals.Status, error) {
 	err := s.Listener.Close()
 	if err != nil {
 		s.Error("Error closing UDP listener: " + err.Error())
-		return globals.Errored, err
+		return globals.StatusErrored, err
 	}
 
-	return globals.Shutdown, nil
+	return globals.StatusShutdown, nil
 }
 
 // Start the UDP server
 func (s *Server) Start() (globals.Status, error) {
 	s.Info("Starting UDP server")
-	s.SetStatus(globals.Starting)
+	s.SetStatus(globals.StatusStarting)
 
 	udpAddr, err := net.ResolveUDPAddr("udp", s.Addr+":"+strconv.Itoa(s.Port))
 
 	if err != nil {
 		s.Error("Error resolving UDP address: " + err.Error())
-		return globals.Errored, err
+		return globals.StatusErrored, err
 	}
 
 	listener, err := net.ListenUDP("udp", udpAddr)
 
 	if err != nil {
 		s.Error("Error starting UDP server: " + err.Error())
-		return globals.Errored, err
+		return globals.StatusErrored, err
 	}
 
 	s.Listener = listener
 
 	go s.Listen()
 
-	return globals.Healthy, nil
+	return globals.StatusHealthy, nil
 }
 
 func (s *Server) Listen() {
-	s.SetStatus(globals.Healthy)
+	s.SetStatus(globals.StatusHealthy)
 
 	// While the server is healthy, listen for incoming UDP packets
-	for *s.Status == globals.Healthy {
+	for *s.Status == globals.StatusHealthy {
 		buf := make([]byte, 1024)
 		n, addr, err := s.Listener.ReadFromUDP(buf)
 

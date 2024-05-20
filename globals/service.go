@@ -42,11 +42,11 @@ func (s *Service) RegisterServiceHooks(startHook ServiceHook, stopHook ServiceHo
 func (s *Service) StartService() error {
 
 	if s.StartHook == nil {
-		s.SetStatus(Healthy)
+		s.SetStatus(StatusHealthy)
 		return nil
 	}
 
-	s.SetStatus(Starting)
+	s.SetStatus(StatusStarting)
 	state, err := s.StartHook()
 	s.SetStatus(state)
 
@@ -57,11 +57,11 @@ func (s *Service) StopService() error {
 	s.Debug("Stopping...")
 
 	if s.StopHook == nil {
-		s.SetStatus(Stopped)
+		s.SetStatus(StatusStopped)
 		return nil
 	}
 
-	s.SetStatus(Stopping)
+	s.SetStatus(StatusStopping)
 	state, err := s.StopHook()
 
 	s.SetStatus(state)
@@ -83,7 +83,7 @@ func (s *Service) RestartService() {
 		return
 	}
 
-	s.SetStatus(Restarting)
+	s.SetStatus(StatusRestarting)
 	state, err := s.StopHook()
 
 	if err != nil {

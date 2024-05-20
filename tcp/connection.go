@@ -1,13 +1,13 @@
 package tcp
 
 import (
-	"encoding/binary"
 	"net"
 	"netbeams/config"
 	"netbeams/environment"
 	"netbeams/globals"
 	"netbeams/http"
 	"netbeams/logs"
+	"strconv"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -18,8 +18,8 @@ type TCPConnection struct {
 	Conn    net.Conn
 	Parent  *Server
 	Logger  logs.Logger
-	Status  globals.Status
 	State   globals.State
+	Player  *http.Player
 }
 
 func NewTCPConnection(conn net.Conn, addr string, parent *Server, l *logs.Logger) TCPConnection {
@@ -28,14 +28,7 @@ func NewTCPConnection(conn net.Conn, addr string, parent *Server, l *logs.Logger
 		Conn:    conn,
 		Parent:  parent,
 		Logger:  l.Fork("TCP-" + addr),
-		Status:  globals.Healthy,
-	}
-}
-
-func (c *TCPConnection) SetStatus(status globals.Status) {
-	if c.Status != status {
-		c.Logger.Infof("Connection %s status changed from %s to %s", c.Address, c.Status, status)
-		c.Status = status
+		State:   globals.StateUnknown,
 	}
 }
 
@@ -49,75 +42,44 @@ func (c *TCPConnection) SetState(state globals.State) {
 func (c *TCPConnection) Listen() {
 	c.Logger.Info("Listening for messages")
 
-	if c.Status != globals.Healthy {
-		c.Logger.Info("Connection is not healthy")
-		return
-	}
-
 	defer c.Logger.Info("Connection closed")
+	defer c.Close()
 
 	defer c.Logger.Terminate()
 
-	if c.Conn == nil {
-		c.Logger.Error("Connection is nil")
-		c.SetStatus(globals.Errored)
-		return
-	}
-
+	// Identify and authenticate the connection
 	c.Identify()
 
-	packet := NewEmptyPacket()
+	// Sync mod data and server info to the client
+	c.SyncModData()
 
-	packet.WriteString("M" + config.Configuration.General.Map)
-
-	c.Write(packet.Serialize())
-
-	c.SetStatus(globals.Healthy)
-
-	packet, err := ReadPacket(c.Conn)
-
-	if err != nil {
-		if err.Error() == "EOF" {
-			c.Logger.Debugf("Connection is closed on TCP by client")
-		}
-	}
-
-	for c.Status == globals.Healthy {
+	for c.State == globals.StatePlaying {
 		breakLoop := c.RuntimeLoop()
 		if breakLoop {
 			c.Kick("Connection closed by server")
-			c.SetStatus(globals.Shutdown)
 			return
 		}
 	}
+
 }
 
-func (c *TCPConnection) Write(data []byte) {
-	c.Logger.Debugf("Writing to connection %s - %d bytes", c.Address, len(data))
+func (c *TCPConnection) Write(data Packet) {
+	c.Logger.Debugf("Writing to connection %s - %d bytes", c.Address, data.Header)
 
-	header := int32(len(data))
-	headerBytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(headerBytes, uint32(header))
-
-	packet := append(headerBytes, data...)
-
-	_, err := c.Conn.Write(packet)
+	_, err := c.Conn.Write(data.Serialize())
 	if err != nil {
-		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error writing to connection - Additional output below")
 		c.Logger.Error(err.Error())
 	}
 }
 
 func (c *TCPConnection) Identify() {
-	// Allow the connection to hang for 5 seconds to allow for latency issues on startup
-	// c.Conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	c.SetState(globals.StateIdentify)
 
 	// Read the first message
 	sState := make([]byte, 1)
 	_, err := c.Conn.Read(sState)
 	if err != nil {
-		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error reading from connection - Additional output below")
 		c.Logger.Error(err.Error())
 		return
@@ -127,13 +89,13 @@ func (c *TCPConnection) Identify() {
 
 	switch sState[0] {
 	case 'C':
-		c.SetState(globals.Authenticate)
+		c.SetState(globals.StateAuthenticate)
 		c.Authenticate()
 	case 'D':
-		c.SetState(globals.Download)
+		c.SetState(globals.StateDownload)
 	case 'P':
-		c.Write([]byte("P"))
-		c.SetState(globals.PingOnly)
+		c.Write(NewPacket("P"))
+		c.SetState(globals.StatePingOnly)
 	default:
 		c.Logger.Error("Unknown starting state - Disconnecting - Additional output below")
 		c.Logger.Errorf("Unknown starting state: %s", sState)
@@ -143,14 +105,13 @@ func (c *TCPConnection) Identify() {
 }
 
 func (c *TCPConnection) Authenticate() {
-	c.SetState(globals.Authenticate)
+	c.SetState(globals.StateAuthenticate)
 
 	// Read the version information from the client
 	packet, err := ReadPacket(c.Conn)
 
 	if err != nil {
 		c.Kick("Unable to read data")
-		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
 		return
@@ -165,7 +126,6 @@ func (c *TCPConnection) Authenticate() {
 
 	if err != nil {
 		c.Kick("Unable to parse version")
-		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
 		c.Logger.Error(rawVersion)
@@ -174,7 +134,6 @@ func (c *TCPConnection) Authenticate() {
 
 	if !environment.Context.SemverMaxClientVersion.Check(version) {
 		c.Kick("Client version is too old")
-		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
 		return
@@ -182,7 +141,6 @@ func (c *TCPConnection) Authenticate() {
 
 	if !environment.Context.SemverMinClientVersion.Check(version) {
 		c.Kick("Client version is too new")
-		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
 		return
@@ -191,13 +149,12 @@ func (c *TCPConnection) Authenticate() {
 	c.Logger.Debugf("Client version: %s - Continuing authentication", version)
 
 	// The client version is valid, we can now read the authentication key
-	c.Write([]byte("A"))
+	c.Write(NewPacket("A"))
 
 	packet, err = ReadPacket(c.Conn)
 
 	if err != nil {
 		c.Kick("Unable to read data")
-		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
 		return
@@ -207,7 +164,6 @@ func (c *TCPConnection) Authenticate() {
 
 	if len(key) > globals.MaxAuthKeyLength {
 		c.Kick("Authentication key is too long")
-		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
 		return
@@ -217,9 +173,10 @@ func (c *TCPConnection) Authenticate() {
 
 	player, err := globals.App.GetService("BeamMP API").(*http.API).AuthenticatePlayer(key)
 
+	c.Player = player
+
 	if err != nil {
 		c.Kick("Unable to authenticate player")
-		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
 		return
@@ -227,7 +184,6 @@ func (c *TCPConnection) Authenticate() {
 
 	if player == nil {
 		c.Kick("Unable to authenticate player")
-		c.SetStatus(globals.Errored)
 		c.Logger.Error("Error authenticating - Additional output below")
 		c.Logger.Fatal(err)
 		return
@@ -246,7 +202,6 @@ func (c *TCPConnection) Authenticate() {
 
 		if !success {
 			c.Kick("Unable to authenticate player")
-			c.SetStatus(globals.Errored)
 			c.Logger.Error("Error authenticating - Failed to send valid password")
 			return
 		}
@@ -261,8 +216,10 @@ func (c *TCPConnection) HandlePassword() bool {
 	// to indicate that the password was not accepted
 	return false
 
+	// c.SetState(globals.StatePassword)
+
 	// c.Logger.Debug("Sending password request")
-	// c.Write([]byte("S"))
+	// c.Write(NewPacket("S"))
 	// c.SetState(globals.Password)
 
 	// // Read the password from the client
@@ -293,30 +250,100 @@ func (c *TCPConnection) HandlePassword() bool {
 	// return false
 }
 
+func (c *TCPConnection) SyncModData() {
+	c.Logger.Debug("Client is preparing to sync mod data")
+
+	playerCount := len(c.Parent.Connections) - 1
+
+	c.SetState(globals.StateDownload)
+
+	c.Write(NewPacket("P" + strconv.Itoa(playerCount)))
+
+	pauseStart := time.Now()
+
+	for {
+		packet, err := ReadPacket(c.Conn)
+		if err != nil {
+			if time.Since(pauseStart) > 5*time.Second {
+				c.Kick("Unable to read data")
+				c.Logger.Error("Error reading from connection - Additional output below")
+				c.Logger.Error(err.Error())
+				return
+			} else {
+				c.Kick("Unable to read data")
+				c.Logger.Error("Error reading from connection - Additional output below")
+				c.Logger.Error(err.Error())
+				return
+			}
+
+		}
+
+		c.Logger.Debugf("Received packet: %v", packet)
+
+		if packet.IsEmpty() {
+			c.Logger.Error("Failed to read packet from client - Malformed?")
+			break
+		} else if packet.Code(0) == 'f' {
+			// The client is requesting a file
+		} else if packet.Code(0) == 'S' {
+			if packet.Code(1) == 'R' {
+				// the client is requesting mod data
+				// Since we do not support mods, we send an empty mod list
+				c.Write(NewPacket("-"))
+			} else {
+				c.Logger.Error("The client sent an unknown request.")
+				c.Kick("The client sent an unknown request.")
+				break
+			}
+		} else if packet.String() == "Done" {
+			c.Logger.Debug("Client mod list synced")
+			c.SetState(globals.StateMapLoad)
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	if c.State != globals.StateMapLoad {
+		c.Kick("Unable to sync mod data")
+		return
+	}
+
+	c.Logger.Debug("Sending map files")
+
+	c.Write(NewPacket("M" + config.Configuration.General.Map))
+
+	packet, err := ReadPacket(c.Conn)
+
+	if err != nil {
+		c.Logger.Error("Error reading from connection - Additional output below")
+		c.Logger.Error(err.Error())
+		return
+	}
+
+	if packet.Code(0) == 'H' {
+		c.Logger.Info("Client is connected and loaded")
+		c.SetState(globals.StatePlaying)
+	} else {
+		c.Logger.Warn("Client may not be loaded - Unrecognized map load response")
+	}
+}
+
 func (c *TCPConnection) Close() {
 	c.Logger.Info("Closing connection")
 	if c.Conn != nil {
 		c.Kick("Server shutting down")
 		c.Conn.Close()
-		c.SetStatus(globals.Shutdown)
+		c.SetState(globals.StateDisconnected)
 	}
-	c.Status = globals.Shutdown
 	delete(c.Parent.Connections, c.Address)
 }
 
 // Kick a connection with a given message
 func (c *TCPConnection) Kick(msg string) {
-	if c.Status != globals.Healthy {
-		c.Logger.Warn("Tried to kick a connection which is not healthy")
-		return
-	}
-
-	c.SetStatus(globals.Shutdown)
-
 	c.Logger.Infof("Kicking connection %s", c.Address)
 	c.Logger.Infof("Reason: %s", msg)
 
-	c.Write([]byte("K" + msg)) // Kick the connection
+	c.Write(NewPacket("K" + msg)) // Kick the connection
 	// c.Close()
 }
 
@@ -352,15 +379,6 @@ func (c *TCPConnection) RuntimeLoop() bool {
 	}
 
 	c.GameplayParser(packet)
-
-	// if err != nil {
-
-	// 	c.Kick("Unable to read data")
-	// 	c.SetStatus(globals.Errored)
-	// 	c.Logger.Error("Error reading from connection - Additional output below")
-	// 	c.Logger.Error(err.Error())
-	// 	return
-	// }
 
 	return false
 }

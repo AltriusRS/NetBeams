@@ -51,20 +51,48 @@ The table below describes the standard control flow to continue the connection p
 | Server -> Client |   TCP    | No     | 1                  | `A`          | The server responds with a single byte to indicate it has accepted the client version. If the server does not accept the version, it should send a [kick](#kick) packet                                                                                                                                                                                                                                                                                                                                                |
 | Client -> Server |   TCP    | Yes    | 36                 | `UUID`       | the client sends a public key to the server, which is used to obtain the user's details from the BeamMP Authentication API. The server should then present the profile data to any plugins which are requesting access via the plugin API (if one is present). Should the server, or one of its plugins decide to not authorize the connection of the client, the server should close the connection using the [kick](#kick) packet, with preference as to providing a reason to the client to prevent user confusion. |
 
-> At this point, we come to a logical fork in the protocol. If the server has a configured `Password` in the `ServerConfig.toml`, then the server should implement the following, otherwise, it should continue from the [Map Loading](#map-loading) section.
+> At this point, we come to a logical fork in the protocol. If the server has a configured `Password` in the `ServerConfig.toml`, then the server should implement the following, otherwise, it should continue from the [Mod Syncing](#mod-syncing) section.
 
 | Direction        | Protocol | Header | Length Constraints | Data       | Description                                                       |
 |------------------|:--------:|--------|--------------------|------------|-------------------------------------------------------------------|
 | Server -> Client |   TCP    | Yes    | 1                  | `S`        | The server sends a single byte to indicate it has a password set. |
 | Client -> Server |   TCP    | Yes    | N/A                | `PASSWORD` | The client sends the password to the server.                      |
 
-> If the server accepts the provided password, it should continue from the [Map Loading](#map-loading) section. Otherwise, it should close the connection using the [kick](#kick) packet, sending the reason as something referencing an invalid password.
+> If the server accepts the provided password, it should continue from the [Mod Syncing](#mod-syncing) section. Otherwise, it should close the connection using the [kick](#kick) packet, sending the reason as something referencing an invalid password.
+
+### Mod Syncing
+
+> Please note that this section is incomplete because this server does not implement the mod syncing feature at this time. This may be added in the future.
+> If you know more information about the mod syncing feature, please inform me, or open a pull request. Thanks!
+
+| Direction        | Protocol | Header | Length Constraints | Data                                               | Description                                                                                                                                    |
+|------------------|:--------:|--------|--------------------|----------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| Server -> Client |   TCP    | Yes    | >1                 | `P<player ID number>`                              | The server sends the client the ID number it has been assigned. This must be sent as a text character, or it will not be receive by the client |
+| Client -> Server |   TCP    | Yes    | 2                  | `SR`                                               | The client sends the server the request to synchronize the mod list.                                                                           |
+| Server -> Client |   TCP    | Yes    | N/A                | **Empty**: `-` <br/> **Modded**: Currently Unknown | The server will send the mod list to the client, or if no mods are present, it will send the first example packet.                             |
+
+> We now reach another logical fork in the protocol. If the server sent a modlist to the client, the client will request the mods from the server, however, if the server did not send a modlist, then the client should continue from the [Map Loading](#map-loading) section.
 
 #### Map Loading
 
-| Direction        | Protocol | Header | Length Constraints | Data                      | Description                                                          |
-|------------------|:--------:|--------|--------------------|---------------------------|----------------------------------------------------------------------|
-| Server -> Client |   TCP    | Yes    | >11                | `M/path/to/map/info.json` | The server sends the path to the map information file to the client. |
+| Direction        | Protocol | Header | Length Constraints | Data                      | Description                                                                           |
+|------------------|:--------:|--------|--------------------|---------------------------|---------------------------------------------------------------------------------------|
+| client -> Server |   TCP    | Yes    | 4                  | `Done`                    | The client sends the server a notification that it has finished syncing the mod list. |
+| Server -> Client |   TCP    | Yes    | >11                | `M/path/to/map/info.json` | The server sends the path to the map information file to the client.                  |
+
+> At this point, there will be a delay whilst the client loads the mods, and the map for the player.
+
+| Direction        | Protocol | Header | Length Constraints | Data           | Description                                                                       |
+|------------------|:--------:|--------|--------------------|----------------|-----------------------------------------------------------------------------------|
+| Client -> Server |   TCP    | Yes    | 1                  | `H`            | The client sends the server confirmation it has loaded the map successfully.      |
+| Server -> Client |   TCP    | Yes    | >2                 | `Sn<username>` | The server sends the client the username of the user account that loaded the map. |
+
+> At this point, the client should open a UDP connection to the server. The details of this protocol are elsewhere in this document.
+> You should also continually send packets to the client, the purpose of which is populating the player list. The frequency of these packets appears to be approximately once per second.
+
+| Direction        | Protocol | Header | Length Constraints | Data                                                                      | Description                                         |
+|------------------|:--------:|--------|--------------------|---------------------------------------------------------------------------|-----------------------------------------------------|
+| Server -> client |   TCP    | Yes    | >2                 | `Ss<player #>/<player limit>:<player name>` <br> Eg: `Ss1/8:guest1004808` | Set the leaderboard for `player #` to `player name` |
 
 ### B
 

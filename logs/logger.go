@@ -10,6 +10,8 @@ import (
 	"github.com/denisbrodbeck/machineid"
 )
 
+var globalLogger Logger
+
 // Logger represents a logger
 type Logger struct {
 	// The lowest level of messages that will be logged
@@ -54,8 +56,16 @@ func OfflineLogger(module string) Logger {
 	shortId := machineId[5:15]
 
 	if internal_log_level != nil {
-		return Logger{
+		globalLogger = Logger{
 			Level:     *internal_log_level,
+			Module:    module,
+			MachineID: machineId,
+			ShortId:   shortId,
+			Hostname:  hostname,
+		}
+	} else {
+		globalLogger = Logger{
+			Level:     LogLevelInfo,
 			Module:    module,
 			MachineID: machineId,
 			ShortId:   shortId,
@@ -63,13 +73,7 @@ func OfflineLogger(module string) Logger {
 		}
 	}
 
-	return Logger{
-		Level:     LogLevelDebug,
-		Module:    module,
-		MachineID: machineId,
-		ShortId:   shortId,
-		Hostname:  hostname,
-	}
+	return globalLogger
 }
 
 // Creates a new logger with a valkey client instance
@@ -148,14 +152,16 @@ func NetLogger(module string) Logger {
 		return l
 	}
 
-	return Logger{
+	globalLogger = Logger{
+		Level:     level,
 		Module:    module,
 		MachineID: machineId,
 		ShortId:   shortId,
 		Hostname:  hostname,
 		Net:       net,
-		Level:     level,
 	}
+
+	return globalLogger
 }
 
 // Log a message

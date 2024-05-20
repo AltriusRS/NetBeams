@@ -6,4 +6,5 @@ netbeams.exe
 BeamMP-Server.exe
 .Threads.log
 Server.log
+Server.old.log
 .ref/

@@ -40,11 +40,11 @@ func Service() *API {
 }
 
 func (a *API) Start() (globals.Status, error) {
-	return globals.Healthy, nil
+	return globals.StatusHealthy, nil
 }
 
 func (a *API) Stop() (globals.Status, error) {
-	return globals.Stopped, nil
+	return globals.StatusStopped, nil
 }
 
 // AuthenticatePlayer authenticates a player with the BeamMP API and returns a Player object

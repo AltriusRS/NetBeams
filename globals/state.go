@@ -1,30 +1,38 @@
 package globals
 
+// State represents the state of the client
 type State int
 
 const (
-	Unknown State = iota
-	Identify
-	Authenticate
-	Download
-	PingOnly
-	Password
+	StateUnknown      State = iota // When the state is unknown (Like on connection)
+	StateIdentify                  // When the client needs identification
+	StateAuthenticate              // When the client is authenticating
+	StateDownload                  // When the client is trying to download files
+	StatePingOnly                  // When the client needs to ping the server
+	StatePassword                  // When the client needs to enter a password
+	StateMapLoad                   // When the client is loading a map
+	StatePlaying                   // When the client is playing
+	StateDisconnected              // When the client is disconnected
 )
 
 func (s State) String() string {
 	switch s {
-	case Unknown:
+	case StateUnknown:
 		return "Unknown"
-	case Identify:
+	case StateIdentify:
 		return "Identify"
-	case Authenticate:
+	case StateAuthenticate:
 		return "Authenticate"
-	case Download:
+	case StateDownload:
 		return "Download"
-	case PingOnly:
+	case StatePingOnly:
 		return "PingOnly"
-	case Password:
+	case StatePassword:
 		return "Password"
+	case StateMapLoad:
+		return "MapLoad"
+	case StatePlaying:
+		return "Playing"
 	default:
 		return "Unknown"
 	}
