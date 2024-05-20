@@ -3,7 +3,7 @@
 This document describes the general flow of the protocol.
 All the steps will include their protocol type
 
-> ## Editors Note
+> ## Editor's Note
 >
 > This documentation is for the VC2.0 protocol, and is not yet complete.
 > The BeamMP team are currently working on a new protocol, which is slated to be released sometime in 2024, however I am unable to find any information on the new protocol, nor am I aware of any implementations of it from which to base any documentation. Once this new protocol is released, I will rename this document to `vc2.0.md` and update the links to the new protocol.
