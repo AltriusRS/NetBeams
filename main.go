@@ -2,13 +2,15 @@ package main
 
 import (
 	"fmt"
-	"netbeams/config"
-	"netbeams/environment"
-	"netbeams/globals"
-	"netbeams/http"
-	"netbeams/logs"
-	"netbeams/tcp"
-	"netbeams/udp"
+
+	"github.com/altriusrs/netbeams/src/config"
+	"github.com/altriusrs/netbeams/src/environment"
+	"github.com/altriusrs/netbeams/src/heartbeat"
+	"github.com/altriusrs/netbeams/src/http"
+	"github.com/altriusrs/netbeams/src/logs"
+	"github.com/altriusrs/netbeams/src/tcp"
+	"github.com/altriusrs/netbeams/src/types"
+	"github.com/altriusrs/netbeams/src/udp"
 )
 
 func main() {
@@ -29,29 +31,31 @@ func main() {
 
 	logger.Info("Loading congiguration file")
 	logger.Info("Loading data")
-	serverConfig := config.Load(&logger)
+	config.Load()
 	logger.Info("Starting server")
-	logger.Info("Name: " + serverConfig.General.Name)
-	logger.Infof("Port: %d", serverConfig.General.Port)
+	logger.Info("Name: " + config.Configuration.General.Name)
+	logger.Infof("Port: %d", config.Configuration.General.Port)
 	mode := "main"
 
-	if serverConfig.NetBeams.MasterNode != "localhost" {
-		logger.Info("Main node: " + serverConfig.NetBeams.MasterNode)
+	if config.Configuration.NetBeams.MasterNode != "localhost" {
+		logger.Info("Main node: " + config.Configuration.NetBeams.MasterNode)
 		logger.Info("Switching to node mode")
 		mode = "node"
 	}
 	logger.Info("Mode: " + mode)
 
 	// Spawn a new application instance
-	globals.NewApplication(serverConfig, &logger)
+	types.NewApplication()
 
 	// Pass application to signal handler to allow graceful shutdown
-	globals.App.RegisterSignalHandler()
+	types.App.RegisterSignalHandler()
 
 	// Spawn the required services
-	globals.App.AddService(http.Service())
-	globals.App.AddService(tcp.Service())
-	globals.App.AddService(udp.Service())
+	// types.App.AddService(config.Service())
+	types.App.AddService(http.Service())
+	types.App.AddService(tcp.Service())
+	types.App.AddService(udp.Service())
+	types.App.AddService(heartbeat.Service())
 
 	switch mode {
 	case "main":
@@ -65,7 +69,7 @@ func main() {
 		// app.StartNode()
 	}
 
-	globals.App.Start()
-	globals.App.Wait() // Wait for the application to terminate
+	types.App.Start()
+	types.App.Wait() // Wait for the application to terminate
 	logger.Info("Exiting")
 }
