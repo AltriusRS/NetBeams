@@ -1,17 +1,9 @@
 package config
 
-// type Tags string
-
-// func (t Tags) String() string {
-// 	return string(t)
-// }
-
-// func (t Tags) Set(value string) error {
-
 func LoadDefault() BaseConfig {
 	return BaseConfig{
 		General: GeneralConfig{
-			Name:           "^l^NetBeams Server",
+			Name:           "NetBeams Server",
 			Port:           30814,
 			AuthKey:        "",
 			LogChat:        true,
@@ -30,11 +22,20 @@ func LoadDefault() BaseConfig {
 			SendErrors:            true,
 		},
 		NetBeams: NetBeamsConfig{
-			MasterNode: "",
+			MasterNode: "localhost",
 			MasterPort: 30815,
 			LogLevel:   "info",
 			LogFile:    "/logs/netbeams.log",
 			ModServer:  "",
+		},
+		Auth: AuthenticationConfig{
+			AllowGuests:          true,
+			AllowContentCreators: true,
+			AllowStaff:           true,
+			MinimumAccountAge:    "0",
+			MaxIdleTime:          -1,
+			MaxOnlineTime:        -1,
+			DefaultKickDuration:  -1,
 		},
 	}
 }

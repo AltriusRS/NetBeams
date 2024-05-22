@@ -46,7 +46,7 @@ func (s *PlayerManager) StartHook() (types.Status, error) {
 
 // Add a new player to the service
 func (s *PlayerManager) AddPlayer(player *types.Player) error {
-	s.Infof("Adding player %s", player.Name)
+	s.Infof("Adding player %s (%s)", player.Account.Name, player.Account.Id)
 
 	id, err := s.ReserveSlot(player)
 
@@ -54,40 +54,55 @@ func (s *PlayerManager) AddPlayer(player *types.Player) error {
 		return err
 	}
 
-	s.Players[id] = player
-	s.Reservations[id] = player.PublicKey
+	s.Players[*id] = player
+	s.Reservations[*id] = player.PublicKey
 
 	return nil
 }
 
 // Reserve a slot for a connection
-func (s *PlayerManager) ReserveSlot(player *types.Player) (int, error) {
-	if _, ok := s.Reservations[player.PublicKey]; ok {
-		return nil, fmt.Errorf("player %s is already connected", player.Name)
+func (s *PlayerManager) ReserveSlot(player *types.Player) (*int, error) {
+	for _, p := range s.Reservations {
+		if p == player.PublicKey {
+			return nil, fmt.Errorf("player %s is already connected", player.Account.Name)
+		}
 	}
 
-	id := s.GetNextID()
-	if id == -1 {
+	id, err := s.GetNextID()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if *id == -1 {
 		return nil, fmt.Errorf("server is full")
 	}
 
-	s.Reservations[id] = player.PublicKey
+	s.Reservations[*id] = player.PublicKey
 
 	return id, nil
 
 }
 
 // Get the next available player ID
-func (s *PlayerManager) GetNextID() (int, error) {
-	if len(s.ids) == 0 {
-		return -1, fmt.Errorf("server is full")
+func (s *PlayerManager) GetNextID() (*int, error) {
+
+	// Get the total number of players
+	total := len(s.Reservations)
+
+	// Check if the server is full
+	if total >= config.Configuration.General.MaxPlayers {
+		return nil, fmt.Errorf("server is full")
 	}
 
+	// Get the next available ID
 	for id := range config.Configuration.General.MaxPlayers {
-		s.ids = s.ids[1:]
-		if s.HasSlot(id) {
-			continue
+
+		if _, ok := s.Reservations[id]; !ok {
+			return &id, nil
 		}
-		return id
 	}
+
+	// If we get here, the server is full
+	return nil, fmt.Errorf("server is full")
 }

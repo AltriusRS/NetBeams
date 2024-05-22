@@ -8,6 +8,7 @@ import (
 	"github.com/altriusrs/netbeams/src/heartbeat"
 	"github.com/altriusrs/netbeams/src/http"
 	"github.com/altriusrs/netbeams/src/logs"
+	"github.com/altriusrs/netbeams/src/player_manager"
 	"github.com/altriusrs/netbeams/src/tcp"
 	"github.com/altriusrs/netbeams/src/types"
 	"github.com/altriusrs/netbeams/src/udp"
@@ -31,7 +32,8 @@ func main() {
 
 	logger.Info("Loading congiguration file")
 	logger.Info("Loading data")
-	config.Load()
+	configuration := config.Service()
+	configuration.StartService()
 	logger.Info("Starting server")
 	logger.Info("Name: " + config.Configuration.General.Name)
 	logger.Infof("Port: %d", config.Configuration.General.Port)
@@ -51,8 +53,9 @@ func main() {
 	types.App.RegisterSignalHandler()
 
 	// Spawn the required services
-	// types.App.AddService(config.Service())
+	types.App.AddService(configuration)
 	types.App.AddService(http.Service())
+	types.App.AddService(player_manager.Service())
 	types.App.AddService(tcp.Service())
 	types.App.AddService(udp.Service())
 	types.App.AddService(heartbeat.Service())

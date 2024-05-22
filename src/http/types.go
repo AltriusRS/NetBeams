@@ -1,6 +1,10 @@
 package http
 
-import "github.com/altriusrs/netbeams/src/types"
+import (
+	"strconv"
+
+	"github.com/altriusrs/netbeams/src/types"
+)
 
 // Player is a wrapper around a player object that is returned from the API
 type Player struct {
@@ -16,6 +20,8 @@ type Player struct {
 }
 
 func (p *Player) IntoPlayerEntity() types.Player {
+	userId, _ := strconv.ParseInt(p.Uid, 10, 32)
+
 	return types.Player{
 		DisplayName: p.Name,
 		Address:     nil,
@@ -23,12 +29,12 @@ func (p *Player) IntoPlayerEntity() types.Player {
 		Vehicles:    nil,
 		Account: &types.Account{
 			Name:        p.Name,
-			PublicKey:   p.PublicKey,
 			Id:          p.Id,
 			Guest:       p.Guest,
 			Identifiers: p.Identifiers,
-			Roles:       p.Roles,
-			UserId:      p.Uid,
+			Roles:       []string{p.Roles},
+			UserId:      userId,
 		},
+		PublicKey: p.PublicKey,
 	}
 }
