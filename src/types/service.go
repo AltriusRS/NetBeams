@@ -107,7 +107,10 @@ func (s *Service) RestartService() {
 }
 
 func (s *Service) SetStatus(status Status) {
-	s.Status = &status
+	if s.Status == nil || *s.Status != status {
+		s.Infof("Service %s status changed from %s to %s", s.Name, s.Status, status)
+		s.Status = &status
+	}
 }
 
 func (s *Service) GetStatus() *Status {

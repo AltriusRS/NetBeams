@@ -19,16 +19,14 @@ type Server struct {
 
 // Create a new UDP server instance
 func Service() *Server {
-	service := types.SpinUp("UDP Server")
-
 	server := Server{
-		Service:  service,
+		Service:  types.SpinUp("UDP Server"),
 		Addr:     "0.0.0.0",
 		Port:     config.Configuration.General.Port,
 		Listener: nil,
 	}
 
-	service.RegisterServiceHooks(server.Start, server.Shutdown, nil)
+	server.RegisterServiceHooks(server.Start, server.Shutdown, nil)
 
 	return &server
 }
@@ -56,8 +54,6 @@ func (s *Server) Start() (types.Status, error) {
 		s.Error("Error resolving UDP address: " + err.Error())
 		return types.StatusErrored, err
 	}
-
-	s.Warnf("UDP address: %s", udpAddr.String())
 
 	listener, err := net.ListenUDP("udp", udpAddr)
 
