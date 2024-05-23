@@ -9,3 +9,4 @@ Server.log
 Server.old.log
 .ref/
 Resources/
+.idea/

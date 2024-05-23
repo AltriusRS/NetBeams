@@ -50,12 +50,14 @@ func (s *Server) Start() (types.Status, error) {
 	s.Info("Starting UDP server")
 	s.SetStatus(types.StatusStarting)
 
-	udpAddr, err := net.ResolveUDPAddr("udp", s.Addr+":"+strconv.Itoa(s.Port))
+	udpAddr, err := net.ResolveUDPAddr("udp4", s.Addr+":"+strconv.Itoa(s.Port))
 
 	if err != nil {
 		s.Error("Error resolving UDP address: " + err.Error())
 		return types.StatusErrored, err
 	}
+
+	s.Warnf("UDP address: %s", udpAddr.String())
 
 	listener, err := net.ListenUDP("udp", udpAddr)
 
@@ -94,4 +96,6 @@ func (s *Server) Listen() {
 
 		// types.App.GetService("Player Manager").HandlePacket(packet)
 	}
+
+	s.SetStatus(types.StatusStopped)
 }

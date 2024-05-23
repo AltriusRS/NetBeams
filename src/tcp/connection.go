@@ -3,6 +3,7 @@ package tcp
 import (
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -10,6 +11,7 @@ import (
 	"github.com/altriusrs/netbeams/src/environment"
 	"github.com/altriusrs/netbeams/src/http"
 	"github.com/altriusrs/netbeams/src/logs"
+	"github.com/altriusrs/netbeams/src/player_manager"
 	"github.com/altriusrs/netbeams/src/types"
 )
 
@@ -86,6 +88,21 @@ func (c *TCPConnection) Identify() {
 	}
 
 	c.Debugf("Received state: %s", sState)
+
+	pm := types.App.GetService("Player Manager").(*player_manager.PlayerManager)
+	_, err = pm.GetNextID()
+
+	if err != nil {
+		if err.Error() == "server is full" {
+			c.Kick("Server is full")
+			return
+		} else {
+			c.Kick("The server is experiencing an error - Please try again later")
+			c.Error("Error authenticating - Additional output below")
+			c.Error(err.Error())
+			return
+		}
+	}
 
 	switch sState[0] {
 	case 'C':
@@ -334,7 +351,7 @@ func (c *TCPConnection) Close() {
 	c.Info("Closing connection")
 	if c.Conn != nil {
 		c.Kick("Server shutting down")
-		c.Conn.Close()
+		_ = c.Conn.Close()
 		c.SetState(types.StateDisconnected)
 	}
 	delete(c.Parent.Connections, c.Address)
@@ -351,31 +368,28 @@ func (c *TCPConnection) Kick(msg string) {
 
 // Main gamemplay loop for the connection
 func (c *TCPConnection) RuntimeLoop() bool {
-	c.Conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_ = c.Conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 
 	packet, err := types.ReadTcpPacket(c.Conn)
 
 	if packet.IsEmpty() {
 		if err != nil {
-			switch err.Error() {
 
-			// The packet is empty, because the connection was EOF
-			case "EOF":
+			e := err.Error()
+
+			if strings.HasSuffix(e, "i/o timeout") {
+				c.Debug("I/O Timeout Err - Ignoring")
+				return false
+			} else if strings.HasSuffix(e, "EOF") {
 				// Sleep the thread for a second to allow the client to begin transmitting
 				time.Sleep(time.Second)
 				return false
-
-			// The connection timed out
-			case "i/o timeout":
-				c.Debug("I/O Timeout Err - Ignoring")
-				return false
-
-			// Handle uncaught error cases
-			default:
+			} else {
 				c.Error("Error reading from connection - Additional output below")
 				c.Error(err.Error())
 				return true
 			}
+
 		}
 
 	}

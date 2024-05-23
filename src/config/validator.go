@@ -166,11 +166,11 @@ func (c *NetBeamsConfig) Validate() []ConfigError {
 	}
 
 	if c.MasterPort < 100 || c.MasterPort > 65535 {
-		c.MasterPort = 30814 // default
+		c.MasterPort = 30815 // default
 		errors = append(errors, ConfigError{
 			code:        0x0200,
 			message:     "Invalid master port",
-			details:     "Master port must be between 100 and 65535 - Will use default value (30814)",
+			details:     "Master port must be between 100 and 65535 - Will use default value (30815)",
 			usesDefault: true,
 			fatal:       false,
 			warning:     false,

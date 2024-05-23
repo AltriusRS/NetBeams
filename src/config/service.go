@@ -1,12 +1,10 @@
 package config
 
 import (
-	"crypto/md5"
-	"encoding/hex"
-	"io"
 	"os"
 	"path/filepath"
 
+	"github.com/altriusrs/netbeams/src/crypto"
 	"github.com/altriusrs/netbeams/src/types"
 	"github.com/fsnotify/fsnotify"
 	"github.com/pelletier/go-toml"
@@ -14,10 +12,10 @@ import (
 
 type ConfigService struct {
 	types.Service
-	configFile     string // The path to the config file
-	resourceFolder string // The path to the resource folder
-	watcher        *fsnotify.Watcher
-	hashes         map[string]string
+	configFile     string            // The path to the config file
+	resourceFolder string            // The path to the resource folder
+	watcher        *fsnotify.Watcher // The file watcher instance
+	hash           *string           // The hash of the configuration file (calculated at startup, not on init)
 }
 
 func Service() *ConfigService {
@@ -31,7 +29,7 @@ func Service() *ConfigService {
 		configFile:     "ServerConfig.toml",
 		resourceFolder: Configuration.General.ResourceFolder,
 		watcher:        watcher,
-		hashes:         make(map[string]string),
+		hash:           nil,
 	}
 
 	service.RegisterServiceHooks(service.Start, service.Stop, nil)
@@ -54,7 +52,9 @@ func (s *ConfigService) Start() (types.Status, error) {
 				return types.StatusErrored, err
 			}
 
-			defer f.Close()
+			defer func() {
+				_ = f.Close()
+			}()
 
 			// general := Configuration.General
 			// misc := Configuration.Misc
@@ -137,37 +137,19 @@ func (s *ConfigService) Start() (types.Status, error) {
 		return types.StatusErrored, err
 	}
 
-	resources = append(resources, s.configFile)
+	s.Debug("Hashing configuration file")
+	hash, err := crypto.HashFile(s.configFile)
 
-	for _, resource := range resources {
-		s.Debugf("Hashing %s", resource)
-		file, err := os.Open(resource)
-		if err != nil {
-			s.Error(err.Error())
-			continue
-		}
-
-		defer file.Close()
-
-		hasher := md5.New()
-
-		if _, err := io.Copy(hasher, file); err != nil {
-			s.Error(err.Error())
-			continue
-		}
-
-		checksum := hasher.Sum(nil)
-		hr := hex.EncodeToString(checksum)
-
-		s.hashes[resource] = hr
-		s.Debugf("Hash for %s: %s", resource, s.hashes[resource])
+	if err != nil {
+		s.Error(err.Error())
+		return types.StatusErrored, err
 	}
 
-	s.Debug("Adding watcher for config file")
-	s.watcher.Add(s.configFile)
+	s.hash = hash
+	s.Debugf("Hash for configuration file: %s", *s.hash)
 
-	s.Debug("Adding watcher for resource folder")
-	s.watcher.Add(s.resourceFolder)
+	s.Debug("Adding watcher for config file")
+	_ = s.watcher.Add(s.configFile)
 
 	s.SetStatus(types.StatusStarting)
 
@@ -177,7 +159,7 @@ func (s *ConfigService) Start() (types.Status, error) {
 }
 
 func (s *ConfigService) Stop() (types.Status, error) {
-	s.watcher.Close()
+	_ = s.watcher.Close()
 
 	return types.StatusShutdown, nil
 }
@@ -194,13 +176,20 @@ func (s *ConfigService) Watch() {
 }
 
 func (s *ConfigService) OnFileChange(event fsnotify.Event) {
-	s.Debugf("File %s changed - %s", event.Name, event.Op.String())
 
 	if event.Name == s.configFile {
-		s.Info("Changes detected - Reloading configuration file")
-		Load()
+		check, _, err := crypto.CompareFileHashes(s.configFile, *s.hash)
 
-		// } else if strings.HasPrefix(event.Name, s.resourceFolder) {
-		// TODO: Trigger resource manager reload
+		if err != nil {
+			s.Error(err.Error())
+			return
+		}
+
+		if !check {
+			s.Info("Changes detected - Reloading configuration file")
+			Load()
+		} else {
+			s.Debug("File modification detected but no changes present")
+		}
 	}
 }

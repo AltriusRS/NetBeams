@@ -11,4 +11,8 @@ require (
 	github.com/valkey-io/valkey-go v1.0.37
 )
 
-require golang.org/x/sys v0.19.0 // indirect
+require (
+	github.com/kalafut/imohash v1.0.3 // indirect
+	github.com/twmb/murmur3 v1.1.5 // indirect
+	golang.org/x/sys v0.19.0 // indirect
+)
