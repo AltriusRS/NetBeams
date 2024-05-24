@@ -21,7 +21,7 @@ type TCPConnection struct {
 	Conn    net.Conn
 	Parent  *Server
 	State   types.State
-	Player  *http.Player
+	Player  types.Player
 }
 
 func NewTCPConnection(conn net.Conn, addr string, parent *Server) TCPConnection {
@@ -190,16 +190,25 @@ func (c *TCPConnection) Authenticate() {
 
 	player, err := types.App.GetService("BeamMP API").(*http.API).AuthenticatePlayer(key)
 
-	c.Player = player
-
-	c.Debugf("Player: %v", player)
-
 	if err != nil {
 		c.Kick("Unable to authenticate player")
 		c.Error("Error authenticating - Additional output below")
 		c.Fatal(err)
 		return
 	}
+
+	c.Player = player.IntoPlayerEntity()
+
+	pid, err := types.App.GetService("Player Manager").(*player_manager.PlayerManager).ReserveSlot(&c.Player)
+
+	if err != nil {
+		c.Kick("Unable to reserve slot")
+		c.Error("Error authenticating - Additional output below")
+		c.Fatal(err)
+		return
+	}
+
+	c.Player.PlayerId = *pid
 
 	if player == nil {
 		c.Kick("Unable to authenticate player")
