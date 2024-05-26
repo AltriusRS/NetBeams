@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"io"
 
+	"github.com/altriusrs/netbeams/src/config"
 	"github.com/altriusrs/netbeams/src/types"
 	"github.com/ip2location/ip2proxy-go/v4"
 )
@@ -59,6 +60,19 @@ func (s *NetCheckService) Check(ip string) (ip2proxy.IP2ProxyRecord, error) {
 
 func (s *NetCheckService) Start() (types.Status, error) {
 	var err error
+
+	s.Info("Starting NetCheck")
+	s.Warn("Please note that due to limitations of the")
+	s.Warn("way port forwarding works, NetCheck will not")
+	s.Warn("work when port forwarded, or using UPnP")
+
+	if config.Configuration.NetBeams.UseUPnP {
+		s.Error("NetCheck cannot work with UPnP enabled. Disabling NetCheck")
+		s.Error("Please disable UPnP in the configuration file")
+	}
+
+	s.Info("Proxy or VPN authentication checking enabled - Loading databases (this will use a lot of memory)")
+	s.Info("Loading IP2Proxy databases")
 
 	s.db, err = ip2proxy.OpenDBWithReader(IPDBReaderAt{inner: ip6Binary})
 

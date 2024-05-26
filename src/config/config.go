@@ -11,6 +11,8 @@ import (
 
 var Configuration BaseConfig
 
+var UseNetCheck bool
+
 func Load() {
 	l := logs.NetLogger("Config")
 	content, err := os.ReadFile("./ServerConfig.toml")
@@ -96,4 +98,8 @@ func Load() {
 	config.Auth.Online.QuotaTime, _ = time.ParseDuration(config.Auth.Online.Quota)
 
 	Configuration = config
+
+	// Set the value for the use of NetCheck to true if the proxy or vpn
+	// but if UPnP is enabled, then set it to false
+	UseNetCheck = !config.NetBeams.UseUPnP && (config.Auth.Proxy.Enable || config.Auth.VPN.Enable)
 }

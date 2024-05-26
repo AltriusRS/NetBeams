@@ -62,7 +62,11 @@ func (app *Application) GetService(name string) any {
 
 func (app *Application) Start() {
 	app.Info("Starting NetBeam...")
+
+	app.Info("Configuring UPnP")
+
 	app.Info("Starting Server")
+
 	app.Infof("Node ID: %s", app.ShortId)
 
 	for name, service := range app.Services {

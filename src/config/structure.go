@@ -89,6 +89,9 @@ type NetBeamsConfig struct {
 
 	// The IP address of the mod server (This can be grabbed from the master node at startup)
 	ModServer string `toml:"ModServer"`
+
+	// Whether to use UPnP to automatically map the server to a port on the router
+	UseUPnP bool `toml:"UseUPnP" comment:"Whether to use UPnP to automatically map the server to a port on the router"`
 }
 
 // AuthenticationConfig is the authentication settings specific to NetBeams

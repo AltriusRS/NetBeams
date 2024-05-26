@@ -27,6 +27,7 @@ func LoadDefault() BaseConfig {
 			LogLevel:   "info",
 			LogFile:    "/logs/netbeams.log",
 			ModServer:  "",
+			UseUPnP:    true,
 		},
 		Auth: AuthenticationConfig{
 			AllowGuests:          true,

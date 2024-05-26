@@ -13,9 +13,11 @@ import (
 	"github.com/altriusrs/netbeams/src/tcp"
 	"github.com/altriusrs/netbeams/src/types"
 	"github.com/altriusrs/netbeams/src/udp"
+	"github.com/altriusrs/netbeams/src/upnp"
 )
 
 func main() {
+
 	environment.GetBuildContext()
 
 	// Spawn a new logger instance
@@ -36,13 +38,19 @@ func main() {
 	configuration := config.Service()
 	configuration.StartService()
 
+	if config.Configuration.NetBeams.UseUPnP {
+		logger.Info("UPnP enabled - Startup may take a few seconds")
+		uservice := upnp.Spawn()
+		uservice.Start()
+	} else {
+		logger.Info("UPnP disabled")
+	}
+
 	// Spawn a new application instance
 	types.NewApplication()
 
 	// Spawn the netcheck service if required
 	if config.Configuration.Auth.Proxy.Enable || config.Configuration.Auth.VPN.Enable {
-		logger.Info("Proxy or VPN authentication checking enabled - Loading databases (this will use a lot of memory)")
-		logger.Info("Loading IP2Proxy databases")
 		netchecker := netcheck.Service()
 		failed := netchecker.StartService()
 		if failed != nil {
