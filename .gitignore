@@ -10,3 +10,4 @@ Server.old.log
 .ref/
 Resources/
 .idea/
+*.bin

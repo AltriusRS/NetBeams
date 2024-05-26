@@ -6,13 +6,15 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/fsnotify/fsnotify v1.7.0
+	github.com/ip2location/ip2proxy-go/v4 v4.0.1
 	github.com/joho/godotenv v1.5.1
+	github.com/kalafut/imohash v1.0.3
 	github.com/pelletier/go-toml v1.9.5
 	github.com/valkey-io/valkey-go v1.0.37
 )
 
 require (
-	github.com/kalafut/imohash v1.0.3 // indirect
 	github.com/twmb/murmur3 v1.1.5 // indirect
 	golang.org/x/sys v0.19.0 // indirect
+	lukechampine.com/uint128 v1.2.0 // indirect
 )

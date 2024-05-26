@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 // BaseConfig is the main config struct for the server
 type BaseConfig struct {
 	// General server settings
@@ -102,14 +104,141 @@ type AuthenticationConfig struct {
 	AllowStaff bool `toml:"AllowStaff" comment:"Whether BeamMP staff are allowed to join the server\nThis will automatically prevent BeamMP staff from joining the server in the authentication step."`
 
 	// The minimum age of an account to be able to join the server
-	MinimumAccountAge string `toml:"MinimumAccountAge" comment:"The minimum age of an account to be able to join the server\n Leave empty to disable\n Currently does not work, as the server does not know the age of the account"`
+	// MinimumAccountAge string `toml:"MinimumAccountAge" comment:"The minimum age of an account to be able to join the server\n Leave empty to disable\n Currently does not work, as the server does not know the age of the account"`
+
+	// Idle player detection settings
+	Idle AuthIdleConfig `toml:"Idle" comment:"Idle player detection settings"`
+
+	// Online player detection settings
+	Online AuthOnlineConfig `toml:"Online" comment:"Online player detection settings"`
+
+	// VPN detection settings
+	VPN AuthVPNConfig `toml:"VPN" comment:"VPN detection settings"`
+
+	// Proxy detection settings
+	Proxy AuthProxyConfig `toml:"Proxy" comment:"Proxy detection settings"`
+
+	// Kick player detection settings
+	Kick AuthKickConfig `toml:"Kick" comment:"Kick player detection settings"`
+
+	// Admin player detection settings
+	Admin AuthAdminConfig `toml:"Admin" comment:"Admin player detection settings"`
+}
+
+type AuthIdleConfig struct {
+
+	// Whether idle player detection is enabled
+	Enable bool `toml:"Enable" comment:"Whether idle player detection is enabled"`
 
 	// The maximum amount of time a player is allowed to be idle before being kicked (in minutes)
-	MaxIdleTime int `toml:"MaxIdleTime" comment:"The maximum amount of time a player is allowed to be idle before being kicked (in minutes)\n Set to -1 to disable"`
+	MaxTime string `toml:"MaxTime" comment:"The maximum amount of time a player is allowed to be idle before being kicked (in minutes)\n Set to -1 to disable"`
+
+	// The max time in Go Time format
+	MaxTimeTime time.Duration
+
+	// The minimum distance a player must have moved to not be considered idle
+	MinDistance int `toml:"MinDistance" comment:"The minimum distance a player must have moved to not be considered idle"`
+}
+
+type AuthKickConfig struct {
+
+	// The minimum amount of time a player is prevented from joining the server after being kicked by an admin (in seconds)
+	AdminDuration string `toml:"MinDuration" comment:"The minimum amount of time a player is prevented from joining the server after being kicked by an admin (in seconds)\n Set to -1 to disable"`
+
+	// The admin duration time in Go Time format
+	AdminDurationTime time.Duration
+
+	// The amount of time a player is prevented from joining the server after being kicked for being idle (in seconds)
+	IdleDuration string `toml:"IdleDuration" comment:"The amount of time a player is prevented from joining the server after being kicked for being idle (in seconds)\n Set to -1 to disable"`
+
+	//	The idle duration time in Go Time format
+	IdleDurationTime time.Duration
+
+	// The amount of time a player is prevented from joining the server after being kicked for reaching their online time quota limit (in seconds)
+	OnlineDuration string `toml:"OnlineDuration" comment:"The amount of time a player is prevented from joining the server after being kicked for reaching their online time quota limit (in seconds)\n Set to -1 to disable"`
+
+	// The online duration time in Go Time format
+	OnlineDurationTime time.Duration
+}
+
+type AuthOnlineConfig struct {
+
+	// Whether players should be kicked for reaching their quota limit
+	Enable bool `toml:"Enable" comment:"Whether players should be kicked for reaching their quota limit"`
 
 	// The maximum amount of time a player is allowed to be on the server before being kicked (in minutes)
-	MaxOnlineTime int `toml:"MaxOnlineTime" comment:"The maximum amount of time a player is allowed to be on the server before being kicked (in minutes)\n Set to -1 to disable"`
+	Quota string `toml:"Quota" comment:"The maximum amount of time a player is allowed to be on the server before being kicked (in minutes)\n Set to -1 to disable"`
 
-	// The amount of time a player is prevented from joining the server after being kicked (in seconds)
-	DefaultKickDuration int `toml:"DefaultKickDuration" comment:"The amount of time a player is prevented from joining the server after being kicked (in seconds)\n Set to -1 to disable"`
+	// The quota time in Go Time format
+	QuotaTime time.Duration
+}
+
+type AuthVPNConfig struct {
+
+	// Whether VPN detection is enabled
+	Enable bool `toml:"Enable" comment:"Whether VPN detection is enabled"`
+
+	// The default behaviour for VPN connections
+	DefaultBehaviour string `toml:"DefaultBehaviour" comment:"The default behaviour for VPN connections\n Valid values are 'Allow', 'Block', 'Kick', 'Ban'"`
+
+	// The ACL for VPN providers
+	ACL map[string]bool `toml:"ACL" comment:"A list of VPN providers and whether they are allowed to join the server"`
+}
+
+type AuthProxyConfig struct {
+
+	// Whether proxy detection is enabled
+	Enable bool `toml:"Enable" comment:"Whether proxy detection is enabled"`
+
+	// The default behaviour for proxy connections
+	DefaultBehaviour string `toml:"DefaultBehaviour" comment:"The default behaviour for proxy connections\n Valid values are 'Allow', 'Block', 'Kick', 'Ban'"`
+
+	// The ACL for proxy providers
+	ACL map[string]bool `toml:"ACL" comment:"A list of proxy providers and whether they are allowed to join the server"`
+}
+
+// An array of permissions for each player (use only for admins)
+type AuthAdminConfig map[string]PlayerPermissionsConfig
+
+// A struct representing the permissions for each player
+type PlayerPermissionsConfig struct {
+
+	// If the player may bypass VPN connection filtering
+	BypassVpn bool `toml:"BypassVpn" comment:"Whether VPN connections are allowed to join the server"`
+
+	// If the player may bypass proxy connection filtering
+	BypassProxy bool `toml:"BypassProxy" comment:"Whether proxy connections are allowed to join the server"`
+
+	// If the player may bypass idle timeouts
+	BypassIdle bool `toml:"BypassIdle" comment:"Whether idle connections are allowed to join the server"`
+
+	// If the player may bypass online quota limits
+	BypassOnline bool `toml:"BypassOnline" comment:"Whether online connections are allowed to join the server"`
+
+	// If the player may bypass vehicle limiting
+	BypassVehicles bool `toml:"BypassVehicles" comment:"Whether vehicles are allowed to join the server"`
+
+	// If the player may hide their name in the leaderboard
+	HideName bool `toml:"HideName" comment:"Whether the player's name is hidden in the leaderboard"`
+
+	// If the player may kick other players
+	KickPlayers bool `toml:"KickPlayers" comment:"Whether the user can kick other players"`
+
+	// If the player may ban other players
+	BanPlayers bool `toml:"BanPlayers" comment:"Whether the user can ban other players"`
+
+	// If the player may mute other players
+	MutePlayers bool `toml:"MutePlayers" comment:"Whether the user can mute other players"`
+}
+
+type AllowList struct {
+
+	// A list of players that are allowed to join the server - These players will be able to join the server only if they pass all other authentication checks
+	Players []string `toml:"Players" comment:"A list of players that are allowed to join the server - These players will be able to join the server only if they pass all other authentication checks"`
+}
+
+type BlockList struct {
+
+	// A list of players that are blocked from joining the server - This is effectively a perma-ban
+	Players []string `toml:"Players" comment:"A list of players that are blocked from joining the server - This is effectively a perma-ban"`
 }

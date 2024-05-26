@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/altriusrs/netbeams/src/logs"
 	"github.com/pelletier/go-toml"
@@ -87,6 +88,12 @@ func Load() {
 		}
 
 	}
+
+	config.Auth.Idle.MaxTimeTime, _ = time.ParseDuration(config.Auth.Idle.MaxTime)
+	config.Auth.Kick.IdleDurationTime, _ = time.ParseDuration(config.Auth.Kick.IdleDuration)
+	config.Auth.Kick.OnlineDurationTime, _ = time.ParseDuration(config.Auth.Kick.OnlineDuration)
+	config.Auth.Kick.AdminDurationTime, _ = time.ParseDuration(config.Auth.Kick.AdminDuration)
+	config.Auth.Online.QuotaTime, _ = time.ParseDuration(config.Auth.Online.Quota)
 
 	Configuration = config
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/altriusrs/netbeams/src/heartbeat"
 	"github.com/altriusrs/netbeams/src/http"
 	"github.com/altriusrs/netbeams/src/logs"
+	"github.com/altriusrs/netbeams/src/netcheck"
 	"github.com/altriusrs/netbeams/src/player_manager"
 	"github.com/altriusrs/netbeams/src/tcp"
 	"github.com/altriusrs/netbeams/src/types"
@@ -34,6 +35,25 @@ func main() {
 	logger.Info("Loading data")
 	configuration := config.Service()
 	configuration.StartService()
+
+	// Spawn a new application instance
+	types.NewApplication()
+
+	// Spawn the netcheck service if required
+	if config.Configuration.Auth.Proxy.Enable || config.Configuration.Auth.VPN.Enable {
+		logger.Info("Proxy or VPN authentication checking enabled - Loading databases (this will use a lot of memory)")
+		logger.Info("Loading IP2Proxy databases")
+		netchecker := netcheck.Service()
+		failed := netchecker.StartService()
+		if failed != nil {
+			logger.Error("Failed to start IP2Proxy databases")
+			logger.Error(failed.Error())
+			return
+		}
+		logger.Info("IP2Proxy databases loaded")
+		types.App.AddService(netchecker)
+	}
+
 	logger.Info("Starting server")
 	logger.Info("Name: " + config.Configuration.General.Name)
 	logger.Infof("Port: %d", config.Configuration.General.Port)
@@ -45,9 +65,6 @@ func main() {
 		mode = "node"
 	}
 	logger.Info("Mode: " + mode)
-
-	// Spawn a new application instance
-	types.NewApplication()
 
 	// Pass application to signal handler to allow graceful shutdown
 	types.App.RegisterSignalHandler()

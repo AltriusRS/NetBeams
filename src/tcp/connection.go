@@ -11,17 +11,21 @@ import (
 	"github.com/altriusrs/netbeams/src/environment"
 	"github.com/altriusrs/netbeams/src/http"
 	"github.com/altriusrs/netbeams/src/logs"
+	"github.com/altriusrs/netbeams/src/netcheck"
 	"github.com/altriusrs/netbeams/src/player_manager"
 	"github.com/altriusrs/netbeams/src/types"
 )
 
 type TCPConnection struct {
 	logs.Logger
-	Address string
-	Conn    net.Conn
-	Parent  *Server
-	State   types.State
-	Player  types.Player
+	Address     string                        // Connection address
+	Conn        net.Conn                      // Connection
+	Parent      *Server                       // Parent server
+	State       types.State                   // Connection state
+	Player      types.Player                  // Player
+	reservation *int                          // Player reservation ID
+	nc          *netcheck.NetCheckService     // NetCheck service
+	pm          *player_manager.PlayerManager // Player Manager service
 }
 
 func NewTCPConnection(conn net.Conn, addr string, parent *Server) TCPConnection {
@@ -31,6 +35,8 @@ func NewTCPConnection(conn net.Conn, addr string, parent *Server) TCPConnection 
 		Parent:  parent,
 		Logger:  logs.NetLogger("TCP-" + addr),
 		State:   types.StateUnknown,
+		nc:      types.App.GetService("NetCheck").(*netcheck.NetCheckService),
+		pm:      types.App.GetService("Player Manager").(*player_manager.PlayerManager),
 	}
 }
 
@@ -88,21 +94,6 @@ func (c *TCPConnection) Identify() {
 	}
 
 	c.Debugf("Received state: %s", sState)
-
-	pm := types.App.GetService("Player Manager").(*player_manager.PlayerManager)
-	_, err = pm.GetNextID()
-
-	if err != nil {
-		if err.Error() == "server is full" {
-			c.Kick("Server is full")
-			return
-		} else {
-			c.Kick("The server is experiencing an error - Please try again later")
-			c.Error("Error authenticating - Additional output below")
-			c.Error(err.Error())
-			return
-		}
-	}
 
 	switch sState[0] {
 	case 'C':
@@ -186,6 +177,47 @@ func (c *TCPConnection) Authenticate() {
 		return
 	}
 
+	if config.Configuration.Auth.Proxy.Enable || config.Configuration.Auth.VPN.Enable {
+		asn, err := c.nc.Check(c.Address)
+
+		if err != nil {
+			c.Kick("Unable to get ASN information")
+			c.Error("Error authenticating - Additional output below")
+			c.Fatal(err)
+			return
+		}
+
+		c.Debugf("IsProxy: %s", strconv.Itoa(int(asn.IsProxy)))
+		c.Debugf("ProxyType: %s", asn.ProxyType)
+		c.Debugf("CountryShort: %s", asn.CountryShort)
+		c.Debugf("CountryLong: %s", asn.CountryLong)
+		c.Debugf("Region: %s", asn.Region)
+		c.Debugf("City: %s", asn.City)
+		c.Debugf("Isp: %s", asn.Isp)
+		c.Debugf("Domain: %s", asn.Domain)
+		c.Debugf("UsageType: %s", asn.UsageType)
+		c.Debugf("Asn: %s", asn.Asn)
+		c.Debugf("As: %s", asn.As)
+		c.Debugf("LastSeen: %s", asn.LastSeen)
+		c.Debugf("Threat: %s", asn.Threat)
+	}
+
+	pid, err := c.pm.ReserveSlotForConnection(nil)
+
+	if err != nil {
+		if err.Error() == "server is full" {
+			c.Kick("Server is full")
+			return
+		} else {
+			c.Kick("The server is experiencing an error - Please try again later")
+			c.Error("Error authenticating - Additional output below")
+			c.Error(err.Error())
+			return
+		}
+	}
+
+	c.reservation = pid // Save the reservation ID
+
 	c.Debugf("Authentication key: %s", key)
 
 	player, err := types.App.GetService("BeamMP API").(*http.API).AuthenticatePlayer(key)
@@ -198,15 +230,6 @@ func (c *TCPConnection) Authenticate() {
 	}
 
 	c.Player = player.IntoPlayerEntity()
-
-	pid, err := types.App.GetService("Player Manager").(*player_manager.PlayerManager).ReserveSlot(&c.Player)
-
-	if err != nil {
-		c.Kick("Unable to reserve slot")
-		c.Error("Error authenticating - Additional output below")
-		c.Fatal(err)
-		return
-	}
 
 	c.Player.PlayerId = *pid
 
